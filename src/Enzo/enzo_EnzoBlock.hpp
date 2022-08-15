@@ -315,6 +315,15 @@ public: /// entry methods
   void solver_mg0_prolong_recv(FieldMsg * msg);
   void p_solver_mg0_restrict_recv(FieldMsg * msg);
 
+  // EnzoMethodHello
+  
+  void p_method_hello_restrict();
+  void p_method_hello_restrict_recv(FieldMsg * msg);
+
+  // EnzoMethodMultipole
+  
+  //  void p_method_multipole_restrict();
+  void p_method_multipole_restrict_recv(MultipoleMsg * msg);
 
   void print() {
     Block::print();

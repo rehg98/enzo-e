@@ -83,6 +83,8 @@ module mesh {
     char a[];
   };
 
+  message MultipoleMsg;
+
   message MsgCoarsen;
   message MsgInitial;
   message MsgOutput;

@@ -196,6 +196,12 @@ EnzoConfig::EnzoConfig() throw ()
   initial_merge_stars_test_particle_data_filename(""),
   // EnzoMethodHeat
   method_heat_alpha(0.0),
+  // EnzoMethodHello
+  method_hello_timeStep(10000.0),
+  method_hello_maxLevel(5),
+  // EnzoMethodMultipole
+  method_multipole_timeStep(10000.0),
+  method_multipole_maxLevel(5),
   // EnzoMethodHydro
   method_hydro_method(""),
   method_hydro_dual_energy(false),
@@ -531,6 +537,12 @@ void EnzoConfig::pup (PUP::er &p)
 
   p | method_heat_alpha;
 
+  p | method_hello_timeStep;
+  p | method_hello_maxLevel;
+
+  p | method_multipole_timeStep;
+  p | method_multipole_maxLevel;
+
   p | method_hydro_method;
   p | method_hydro_dual_energy;
   p | method_hydro_dual_energy_eta_1;
@@ -681,6 +693,8 @@ void EnzoConfig::read(Parameters * p) throw()
   read_method_vlct_(p);
   read_method_gravity_(p);
   read_method_heat_(p);
+  read_method_hello_(p);
+  read_method_multipole_(p);
   read_method_pm_deposit_(p);
   read_method_pm_update_(p);
   read_method_ppm_(p);
@@ -1575,6 +1589,24 @@ void EnzoConfig::read_method_heat_(Parameters * p)
 {
   method_heat_alpha = p->value_float
     ("Method:heat:alpha",1.0);
+}
+
+void EnzoConfig::read_method_hello_(Parameters * p)
+{
+  method_hello_timeStep = p->value_float
+    ("Method:hello:timeStep",10000.0);
+
+  method_hello_maxLevel = p->value_integer
+    ("Method:hello:maxLevel",5);
+}
+
+void EnzoConfig::read_method_multipole_(Parameters * p)
+{
+  method_multipole_timeStep = p->value_float
+    ("Method:multipole:timeStep",10000.0);
+
+  method_multipole_maxLevel = p->value_integer
+    ("Method:multipole:maxLevel",5);
 }
 
 void EnzoConfig::read_method_merge_stars_(Parameters * p)

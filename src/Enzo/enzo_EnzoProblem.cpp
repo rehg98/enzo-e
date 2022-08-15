@@ -599,6 +599,19 @@ Method * EnzoProblem::create_method_
     method = new EnzoMethodPmUpdate
       (enzo_config->method_pm_update_max_dt);
 
+  } else if (name == "hello") {
+
+    method = new EnzoMethodHello
+      (enzo_config->method_hello_timeStep,
+       enzo_config->method_hello_maxLevel);
+
+  } else if (name == "multipole") {
+
+    method = new EnzoMethodMultipole
+      (enzo_config->method_multipole_timeStep,
+       enzo_config->method_multipole_maxLevel);
+       // config->adapt_max_level[index_method]);
+
   } else if (name == "heat") {
 
     method = new EnzoMethodHeat

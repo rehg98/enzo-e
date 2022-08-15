@@ -298,6 +298,12 @@ public: // interface
       method_check_gravity_particle_type(),
       // EnzoMethodHeat
       method_heat_alpha(0.0),
+      // EnzoMethodHello
+      method_hello_timeStep(10000.0),
+      method_hello_maxLevel(5),
+      // EnzoMethodMultipole
+      method_multipole_timeStep(10000.0),
+      method_multipole_maxLevel(5),
       // EnzoMethodHydro
       method_hydro_method(""),
       method_hydro_dual_energy(false),
@@ -451,6 +457,8 @@ protected: // methods
   void read_method_vlct_(Parameters *);
   void read_method_gravity_(Parameters *);
   void read_method_heat_(Parameters *);
+  void read_method_hello_(Parameters *);
+  void read_method_multipole_(Parameters *);
   void read_method_pm_deposit_(Parameters *);
   void read_method_pm_update_(Parameters *);
   void read_method_ppm_(Parameters *);
@@ -697,6 +705,14 @@ public: // attributes
   /// EnzoMethodHeat
   double                     method_heat_alpha;
 
+  /// EnzoMethodHello
+  double                     method_hello_timeStep;
+  int                        method_hello_maxLevel;
+
+  /// EnzoMethodMultipole
+  double                     method_multipole_timeStep;
+  int                        method_multipole_maxLevel;
+  
   /// EnzoMethodHydro
   std::string                method_hydro_method;
   bool                       method_hydro_dual_energy;

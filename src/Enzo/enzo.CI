@@ -92,6 +92,8 @@ module enzo {
   PUPable EnzoMethodGravity;
 
   PUPable EnzoMethodHeat;
+  PUPable EnzoMethodHello;
+  PUPable EnzoMethodMultipole;
   PUPable EnzoMethodPmDeposit;
   PUPable EnzoMethodPmUpdate;
   PUPable EnzoMethodPpm;
@@ -226,6 +228,16 @@ module enzo {
     entry void r_solver_mg0_barrier(CkReductionMsg* msg);
     entry void p_solver_mg0_prolong_recv(FieldMsg * msg);
     entry void p_solver_mg0_restrict_recv(FieldMsg * msg);
+
+    // EnzoMethodHello
+
+    entry void p_method_hello_restrict();
+    entry void p_method_hello_restrict_recv(FieldMsg * msg);
+
+    // EnzoMethodMultipole
+
+   // entry void p_method_multipole_restrict();
+    entry void p_method_multipole_restrict_recv(MultipoleMsg * msg);
 
   };
 
