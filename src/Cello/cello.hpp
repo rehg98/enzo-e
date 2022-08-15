@@ -38,15 +38,18 @@
 
 #include "pup_stl.h"
 
+#include "cello_defines.hpp"
 #include "cello_Sync.hpp"
 
 // #define DEBUG_CHECK
 
 class Block;
+class Boundary;
 class Config;
 class CProxy_Block;
-class FieldDescr;
+class Factory;
 class Field;
+class FieldDescr;
 class Grouping;
 class Hierarchy;
 class Monitor;
@@ -221,6 +224,10 @@ enum type_enum {
 #endif
 
 
+#ifdef BYPASS_CHARM_MEM_LEAK
+enum class MsgType { msg_refine, msg_check };
+#endif
+
 /// Length of hex message tags used for debugging
 #define TAG_LEN 8
 
@@ -350,7 +357,7 @@ enum type_enum {
 #define SAVE_SCALAR_TYPE(POINTER,TYPE,VALUE)    \
   {                                             \
     int n;                                      \
-    memcpy(POINTER,&VALUE,n=sizeof(TYPE));	\
+    memcpy(POINTER,&(VALUE),n=sizeof(TYPE));	\
     (POINTER) += n;                             \
   }
 
@@ -363,23 +370,23 @@ enum type_enum {
 
 //--------------------------------------------------
 
-#define SIZE_ARRAY_TYPE(COUNT,TYPE,ARRAY,LENGTH)        \
-  {                                                     \
-    (COUNT) += sizeof(int);                             \
-    (COUNT) += (LENGTH)*sizeof(TYPE);                     \
+#define SIZE_ARRAY_TYPE(COUNT,TYPE,ARRAY,SIZE)  \
+  {                                             \
+    (COUNT) += sizeof(int);                     \
+    (COUNT) += (SIZE)*sizeof(TYPE);             \
   }
 
-#define SAVE_ARRAY_TYPE(POINTER,TYPE,ARRAY,LENGTH)      \
+#define SAVE_ARRAY_TYPE(POINTER,TYPE,ARRAY,SIZE)        \
   {                                                     \
-    int n,length = (LENGTH);                              \
+    int n,length = (SIZE);                              \
     memcpy(POINTER,&length, n=sizeof(int));             \
     (POINTER) += n;                                     \
     memcpy(POINTER,&ARRAY[0],n=length*sizeof(TYPE));	\
     (POINTER) += n;                                     \
   }
-#define LOAD_ARRAY_TYPE(POINTER,TYPE,ARRAY,LENGTH)      \
+#define LOAD_ARRAY_TYPE(POINTER,TYPE,ARRAY,SIZE)        \
   {                                                     \
-    int n,length = (LENGTH);                              \
+    int n,length = (SIZE);                              \
     memcpy(&length, POINTER, n=sizeof(int));		\
     (POINTER) += n;                                     \
     memcpy(&ARRAY[0],POINTER,n=length*sizeof(TYPE));	\
@@ -388,10 +395,10 @@ enum type_enum {
 
 //--------------------------------------------------
 
-#define SIZE_STRING_TYPE(COUNT,STRING)                                  \
-  {                                                                     \
-    (COUNT) += sizeof(int);                                             \
-    (COUNT) += (STRING).size()*sizeof(char);                            \
+#define SIZE_STRING_TYPE(COUNT,STRING)          \
+  {                                             \
+    (COUNT) += sizeof(int);                     \
+    (COUNT) += (STRING).size()*sizeof(char);    \
   }
 #define SAVE_STRING_TYPE(POINTER,STRING)                        \
   {                                                             \
@@ -415,29 +422,27 @@ enum type_enum {
 
 //--------------------------------------------------
 
-#define SIZE_VECTOR_TYPE(COUNT,TYPE,VECTOR)     \
-  {						\
-    (COUNT) += sizeof(int);			\
-    (COUNT) += sizeof(TYPE)*(VECTOR).size();    \
-  }
-#define SAVE_VECTOR_TYPE(POINTER,TYPE,VECTOR)                   \
+#define SIZE_VECTOR_TYPE(COUNT,TYPE,VECTOR)                     \
   {                                                             \
-    int length = (VECTOR).size();                               \
-    int n;                                                      \
-    memcpy(POINTER,&length, n=sizeof(int));                     \
-    (POINTER) += n;                                             \
-    memcpy(POINTER,(TYPE*)&(VECTOR)[0],n=length*sizeof(TYPE));  \
-    (POINTER) += n;                                             \
+    (COUNT) += sizeof(int);                                     \
+    (COUNT) += sizeof(TYPE)*(VECTOR).size();                    \
   }
-#define LOAD_VECTOR_TYPE(POINTER,TYPE,VECTOR)                           \
+#define SAVE_VECTOR_TYPE(POINTER,TYPE,VECTOR)                           \
   {                                                                     \
-    int length;                                                         \
-    int n;                                                              \
-    memcpy(&length, POINTER, n=sizeof(int));                            \
-    (POINTER) += n;                                                     \
-    (VECTOR).resize(length);                                            \
-    memcpy((TYPE*)(VECTOR).data(),POINTER,n=length*sizeof(TYPE));	\
-    (POINTER) += n;                                                     \
+  int size = (VECTOR).size();                                           \
+  memcpy(POINTER,&size, sizeof(int));                                   \
+  (POINTER) += sizeof(int);                                             \
+  memcpy(POINTER,(TYPE*)&(VECTOR)[0],size*sizeof(TYPE));                \
+  (POINTER) += size*sizeof(TYPE);                                       \
+  }
+#define LOAD_VECTOR_TYPE(POINTER,TYPE,VECTOR)                   \
+  {                                                             \
+    int size;                                                   \
+    memcpy(&size, POINTER, sizeof(int));                        \
+    (POINTER) += sizeof(int);                                   \
+    (VECTOR).resize(size);                                      \
+    memcpy((TYPE*)(VECTOR).data(),POINTER,size*sizeof(TYPE));	\
+    (POINTER) += size*sizeof(TYPE);                             \
   }
 
 //--------------------------------------------------
@@ -461,29 +466,105 @@ enum type_enum {
 
 #define SIZE_OBJECT_PTR_TYPE(COUNT,TYPE,OBJECT_PTR)     \
   {                                                     \
-  int have_data = ((OBJECT_PTR) != nullptr);            \
-  SIZE_SCALAR_TYPE(COUNT,int,have_data);                \
-  if (have_data) {                                      \
-    (COUNT) += (OBJECT_PTR)->data_size();               \
+    int have_data = ((OBJECT_PTR) != nullptr);          \
+    (COUNT) += sizeof(int);                             \
+    if (have_data) {                                    \
+      (COUNT) += (OBJECT_PTR)->data_size();             \
+    }                                                   \
   }
 
 #define SAVE_OBJECT_PTR_TYPE(POINTER,TYPE,OBJECT_PTR)   \
   {                                                     \
-  int have_data = ((OBJECT_PTR) != nullptr);            \
-  SAVE_SCALAR_TYPE(POINTER,int,have_data);              \
-  if (have_data) {                                      \
-    (POINTER) = (OBJECT_PTR)->save_data(POINTER);       \
+    int have_data = ((OBJECT_PTR) != nullptr);          \
+    memcpy ((POINTER),&have_data,sizeof(int));          \
+    (POINTER) += sizeof(int);                           \
+    if (have_data) {                                    \
+      (POINTER) = (OBJECT_PTR)->save_data(POINTER);     \
+    }                                                   \
   }
 
 #define LOAD_OBJECT_PTR_TYPE(POINTER,TYPE,OBJECT_PTR)   \
   {                                                     \
-  int have_data;                                        \
-  LOAD_SCALAR_TYPE(POINTER,int,have_data);              \
-  if (have_data) {                                      \
-    (OBJECT_PTR) = new TYPE;                            \
-    (POINTER) = (OBJECT_PTR)->load_data(POINTER);       \
+    int have_data;                                      \
+    memcpy(&have_data,(POINTER),sizeof(int));           \
+    (POINTER) += sizeof(int);                           \
+    if (have_data) {                                    \
+      (OBJECT_PTR) = new TYPE;                          \
+      (POINTER) = (OBJECT_PTR)->load_data(POINTER);     \
+    } else {                                            \
+      (OBJECT_PTR) = nullptr;                           \
+    }                                                   \
   }
 
+//--------------------------------------------------
+
+#define SIZE_MAP_TYPE(COUNT,TYPE_1,TYPE_2,MAP)  \
+  {                                             \
+    (COUNT) += sizeof(int);			\
+    (COUNT) += (MAP).size() *                   \
+      (sizeof(TYPE_1) + sizeof(TYPE_2));        \
+  }
+#define SAVE_MAP_TYPE(POINTER,TYPE_1,TYPE_2,MAP)                \
+  {                                                             \
+    int size = (MAP).size();                                    \
+    memcpy(POINTER,&size, sizeof(int));                         \
+    (POINTER) += sizeof(int);                                   \
+    auto iter = (MAP).begin();                                  \
+    while (iter != (MAP).end()) {                               \
+      memcpy(POINTER,(TYPE_1*)&iter->first,sizeof(TYPE_1));     \
+      (POINTER) += sizeof(TYPE_1);                              \
+      memcpy(POINTER,(TYPE_2*)&iter->second,sizeof(TYPE_2));    \
+      (POINTER) += sizeof(TYPE_2);                              \
+      ++iter;                                                   \
+    }                                                           \
+  }
+#define LOAD_MAP_TYPE(POINTER,TYPE_1,TYPE_2,MAP)        \
+  {                                                     \
+    int size;                                           \
+    memcpy(&size, POINTER, sizeof(int));                \
+    (POINTER) += sizeof(int);                           \
+    for (int i=0; i<size; i++) {                        \
+      TYPE_1 first;                                     \
+      TYPE_2 second;                                    \
+      memcpy((TYPE_1*)&first,POINTER,sizeof(TYPE_1));   \
+      (POINTER) += sizeof(TYPE_1);                      \
+      memcpy((TYPE_2*)&second,POINTER,sizeof(TYPE_2));  \
+      (POINTER) += sizeof(TYPE_2);                      \
+      (MAP)[first] = second;                            \
+    }                                                   \
+  }
+
+//--------------------------------------------------
+
+#define SIZE_SET_TYPE(COUNT,TYPE,SET)           \
+  {                                             \
+    (COUNT) += sizeof(int);			\
+    (COUNT) += (SET).size() * sizeof(TYPE);     \
+  }
+#define SAVE_SET_TYPE(POINTER,TYPE,SET)                         \
+  {                                                             \
+    int size = (SET).size();                                    \
+    memcpy(POINTER,&size, sizeof(int));                         \
+    (POINTER) += sizeof(int);                                   \
+    auto iter = (SET).begin();                                  \
+    while (iter != (SET).end()) {                               \
+      memcpy(POINTER,(TYPE*)&(*iter),sizeof(TYPE));      \
+      (POINTER) += sizeof(TYPE);                                \
+      ++iter;                                                   \
+    }                                                           \
+  }
+#define LOAD_SET_TYPE(POINTER,TYPE,SET)                 \
+  {                                                     \
+    int size;                                           \
+    memcpy(&size, POINTER, sizeof(int));                \
+    (POINTER) += sizeof(int);                           \
+    for (int i=0; i<size; i++) {                        \
+      TYPE first;                                       \
+      memcpy((TYPE*)&first,POINTER,sizeof(TYPE));       \
+      (POINTER) += sizeof(TYPE);                        \
+      (SET).insert(first);                              \
+    }                                                   \
+  }
 //--------------------------------------------------
 
 /// Type for CkMyPe(); used for Block() constructor to differentiate
@@ -497,51 +578,6 @@ namespace cello {
 
   // pi
   const double pi = 3.14159265358979324;
-
-  // ergs per eV
-  const double erg_eV = 1.60217653E-12;
-
-  // eV per erg
-  const double eV_erg = 6.24150948E11;
-
-  // Boltzman constant in CGS
-  const double kboltz = 1.3806504e-16;
-
-  // Solar mass in CGS
-  const double mass_solar = 1.98841586e33;
-
-  // Hydrogen mass in CGS
-  const double mass_hydrogen = 1.67262171e-24;
-
-  // Electron mass in CGS
-  const double mass_electron = 9.10938291E-28;
-
-  // parsec in CGS
-  const double pc_cm  = 3.0856775809623245E18;
-
-  // Kiloparsec in CGS
-  const double kpc_cm = 3.0856775809623245E21;
-
-  // Megaparsec in CGS
-  const double Mpc_cm = 3.0856775809623245E24;
-
-  // speed of light in CGS
-  const double clight = 29979245800.0;
-
-  // Gravitational constant in CGS
-  const double grav_constant = 6.67384E-8;
-
-  // year in seconds
-  const double yr_s = 3.1556952E7;
-
-  // kyr in seconds
-  const double kyr_s = 3.1556952E10;
-
-  // Myr in seconds
-  const double Myr_s = 3.1556952E13;
-
-  // Approximate mean molecular weight of metals
-  const double mu_metal = 16.0;
 
   // precision functions
   double machine_epsilon     (int);
@@ -574,12 +610,12 @@ namespace cello {
 
   template <class T>
   void copy (T * array_d,
-          int mdx, int mdy, int mdz,
-          int odx, int ody, int odz,
-          const T * array_s,
-          int msx, int msy, int msz,
-          int osx, int osy, int osz,
-          int nx, int ny, int nz)
+             int mdx, int mdy, int mdz,
+             int odx, int ody, int odz,
+             const T * array_s,
+             int msx, int msy, int msz,
+             int osx, int osy, int osz,
+             int nx, int ny, int nz)
   {
     int os = osx + msx*(osy + msy*osz);
     int od = odx + mdx*(ody + mdy*odz);
@@ -635,22 +671,22 @@ namespace cello {
 	      const char * file, int line)
   {
     if (std::fpclassify(value) == FP_ZERO) {
-      printf ("WARNING: %s:%d %s zero\n", file,line,message);	
-    }					
-    if (std::fpclassify(value) == FP_NAN) {
-      printf ("WARNING: %s:%d %s nan\n", file,line,message);	
-    }					
-    if (std::fpclassify(value) == FP_INFINITE) {
-      printf ("WARNING: %s:%d %s inf\n", file,line,message);	
+      printf ("WARNING: %s:%d %s zero\n", file,line,message);
     }
-#ifdef DEBUG_CHECK    
+    if (std::fpclassify(value) == FP_NAN) {
+      printf ("WARNING: %s:%d %s nan\n", file,line,message);
+    }
+    if (std::fpclassify(value) == FP_INFINITE) {
+      printf ("WARNING: %s:%d %s inf\n", file,line,message);
+    }
+#ifdef DEBUG_CHECK
     if (sizeof(value)==sizeof(float))
       CkPrintf ("DEBUG_CHECK %s = %25.15g\n",message,value);
     if (sizeof(value)==sizeof(double))
       CkPrintf ("DEBUG_CHECK %s = %25.15lg\n",message,value);
     if (sizeof(value)==sizeof(long double))
       CkPrintf ("DEBUG_CHECK %s = %25.15Lg\n",message,value);
-#endif    
+#endif
   }
 
   inline int index_static()
@@ -665,10 +701,14 @@ namespace cello {
 
   /// Return a pointer to the Simulation object on this process
   Simulation *    simulation();
+  /// Return a pointer to the Factory object on this process
+  const Factory * factory();
   /// Return a proxy for the Block chare array of Blocks
   CProxy_Block    block_array();
   /// Return a pointor to the Problem object defining the problem being solved
   Problem *       problem();
+  /// Return a pointor to the ith Bounday object
+  Boundary *      boundary(int i);
   /// Return a pointer to the Hierarchy object defining the mesh hierarchy
   Hierarchy *     hierarchy();
   /// Return a pointer to the Config object containing user parameters values
@@ -705,12 +745,16 @@ namespace cello {
   ScalarDescr *   scalar_descr_double();
   /// Return the ScalarDescr object defining Block int Scalar data values
   ScalarDescr *   scalar_descr_int();
+  /// Return the ScalarDescr object defining Block long long Scalar data values
+  ScalarDescr *   scalar_descr_long_long();
   /// Return the ScalarDescr object defining Block Sync counter Scalar
   /// data values
   ScalarDescr *   scalar_descr_sync();
   /// Return the ScalarDescr object defining Block pointer Scalar data
   /// values
   ScalarDescr *   scalar_descr_void();
+  /// Return the ScalarDescr object defining Block index Scalar data values
+  ScalarDescr *   scalar_descr_index();
 
   /// Return the ith Output object
   Output *        output (int index);
@@ -720,6 +764,7 @@ namespace cello {
   int             rank ();
   /// Return the number of children each Block may have
   int             num_children();
+  int             num_children(int rank);
   /// Return the number of Blocks on this process
   size_t          num_blocks_process();
   /// Return the cell volume at the given level relative to the root level
@@ -728,12 +773,14 @@ namespace cello {
 
   /// Return the file name for the format and given arguments
   std::string expand_name
-  (const std::vector <std::string> * file_name, int counter, Block * block);
+  (const std::vector <std::string> * file_name,
+   int counter, int cycle, double time);
 
   /// Return the path for this file group output.  Creates
   /// the subdirectories if they don't exist
-  std::string directory
-  (const std::vector <std::string> * path_name, int counter, Block * block);
+  std::string create_directory
+  (const std::vector <std::string> * path_name,
+   int counter, int cycle, double time, bool & already_exists);
 
   
 }

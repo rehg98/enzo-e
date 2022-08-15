@@ -80,7 +80,7 @@ void MethodFluxCorrect::compute ( Block * block) throw()
 
 //----------------------------------------------------------------------
 
-void Block::Block::p_method_flux_correct_refresh()
+void Block::p_method_flux_correct_refresh()
 {
   static_cast<MethodFluxCorrect*>
     (this->method())->compute_continue_refresh(this);
@@ -164,7 +164,7 @@ void MethodFluxCorrect::compute_continue_refresh( Block * block ) throw()
 
 //----------------------------------------------------------------------
 
-void Block::Block::r_method_flux_correct_sum_fields(CkReductionMsg * msg)
+void Block::r_method_flux_correct_sum_fields(CkReductionMsg * msg)
 {
   static_cast<MethodFluxCorrect*>
     (this->method())->compute_continue_sum_fields(this,msg);
@@ -189,7 +189,6 @@ void MethodFluxCorrect::compute_continue_sum_fields
   
   if (block->index().is_root()) {
 
-    const int index_density = field.field_id("density");
     // for each conserved field
     for (int i_f=0; i_f<nf; i_f++) {
 
@@ -419,7 +418,6 @@ void MethodFluxCorrect::flux_correct_(Block * block)
         }
       }
     }
-
     int i_f_density = -1; // will be used to store i_f for density
     for (int i_f=0; i_f<nf; i_f++) {
       const int index_field = flux_data->index_field(i_f);

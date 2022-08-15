@@ -48,7 +48,6 @@ public: // interface
     boundary_field_list(),
     num_fields(0),
     field_list(),
-    field_index(),
     field_alignment(0),
     field_padding(0),
     field_history(0),
@@ -61,6 +60,8 @@ public: // interface
     initial_list(),
     initial_cycle(0),
     initial_time(0.0),
+    initial_restart(false),
+    initial_restart_dir(""),
     initial_trace_name(""),
     initial_trace_field(""),
     initial_trace_mpp(0.0),
@@ -119,6 +120,7 @@ public: // interface
     output_image_log(),
     output_image_abs(),
     output_image_mesh_color(),
+    output_image_mesh_order(),
     output_image_color_particle_attribute(),
     output_image_size(),
     output_image_reduce_type(),
@@ -161,7 +163,6 @@ public: // interface
     performance_off_schedule_index(-1),
     num_physics(0),
     physics_list(),
-    restart_file(""),
     num_solvers(),
     solver_list(),
     solver_index(),
@@ -222,7 +223,6 @@ public: // interface
       boundary_field_list(),
       num_fields(0),
       field_list(),
-      field_index(),
       field_alignment(0),
       field_padding(0),
       field_history(0),
@@ -235,6 +235,8 @@ public: // interface
       initial_list(),
       initial_cycle(0),
       initial_time(0.0),
+      initial_restart(false),
+      initial_restart_dir(""),
       initial_trace_name(""),
       initial_trace_field(""),
       initial_trace_mpp(0.0),
@@ -292,6 +294,7 @@ public: // interface
       output_image_log(),
       output_image_abs(),
       output_image_mesh_color(),
+      output_image_mesh_order(),
       output_image_color_particle_attribute(),
       output_image_size(),
       output_image_reduce_type(),
@@ -334,7 +337,6 @@ public: // interface
       performance_off_schedule_index(-1),
       num_physics(0),
       physics_list(),
-      restart_file(""),
       num_solvers(),
       solver_list(),
       solver_index(),
@@ -425,7 +427,6 @@ public: // attributes
 
   int                        num_fields;
   std::vector<std::string>   field_list;
-  std::map<std::string,int>  field_index;
   int                        field_alignment;
   std::vector<int>           field_centering [3];
   int                        field_ghost_depth[3];
@@ -444,6 +445,11 @@ public: // attributes
   int                        initial_cycle;
   double                     initial_time;
 
+  /// restart
+  bool                       initial_restart;
+  std::string                initial_restart_dir;
+
+  // InitialTrace
   std::string                initial_trace_name;
   std::string                initial_trace_field;
   double                     initial_trace_mpp;
@@ -525,6 +531,7 @@ public: // attributes
   std::vector < char >        output_image_log;
   std::vector < char >        output_image_abs;
   std::vector < std::string > output_image_mesh_color;
+  std::vector < std::string > output_image_mesh_order;
   std::vector < std::string > output_image_color_particle_attribute;
   std::vector < std::vector <int> > output_image_size;
   std::vector < std::string>  output_image_reduce_type;
@@ -543,6 +550,7 @@ public: // attributes
   std::vector < std::vector <std::string> >  output_field_list;
   std::vector < std::vector <std::string> > output_particle_list;
   std::vector < std::vector <std::string> >  output_name;
+  std::string                 output_checkpoint_file;
   int                         index_schedule;
   std::vector< std::vector<double> > schedule_list;
   std::vector< std::string >  schedule_type;
@@ -582,10 +590,6 @@ public: // attributes
   
   int                        num_physics;  // number of physics objects
   std::vector<std::string>   physics_list;
-
-  // Restart
-
-  std::string                restart_file;
 
   // Solvers
 
@@ -641,7 +645,6 @@ protected: // functions
   void read_particle_    ( Parameters * ) throw();
   void read_performance_ ( Parameters * ) throw();
   void read_physics_     ( Parameters * ) throw();
-  void read_restart_     ( Parameters * ) throw();
   void read_solver_      ( Parameters * ) throw();
   void read_stopping_    ( Parameters * ) throw();
   void read_testing_     ( Parameters * ) throw();

@@ -281,10 +281,6 @@ public: // interface
   void set_root_level(int root_level)
   { root_level_ = root_level; }
 
-  /// Set minimum face rank
-  void set_min_face_rank (int min_face_rank)
-  { min_face_rank_ = min_face_rank; }
-  
   /// Return the current minimum rank (dimension) of faces to refresh
   /// e.g. 0: everything, 1: omit corners, 2: omit corners and edges
   int min_face_rank() const
@@ -294,6 +290,11 @@ public: // interface
   void set_ghost_depth(int ghost_depth)
   { ghost_depth_ = ghost_depth; }
   
+  /// Set a new minimum rank (dimension) of faces to refresh
+  /// e.g. 0: everything, 1: omit corners, 2: omit corners and edges
+  void set_min_face_rank(int min_face_rank)
+  { min_face_rank_ = min_face_rank; }
+
   /// Return the data field ghost depth
   int ghost_depth() const
   { return ghost_depth_; }
@@ -369,6 +370,7 @@ public: // interface
     CkPrintf ("     accumulate: %d\n",accumulate_);
     CkPrintf ("     sync_type: %d\n",sync_type_);
     CkPrintf ("     sync_id: %d\n",sync_id_);
+    CkPrintf ("     id_refresh: %d\n",id_refresh_);
     CkPrintf ("     active: %d\n",active_);
     CkPrintf ("     callback: %d\n",callback_);
     CkPrintf ("     root_level: %d\n",root_level_);

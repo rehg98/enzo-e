@@ -22,6 +22,7 @@ public: // interface
                   int max_level,
                   std::string                 format,
                   const int                   blocking[3],
+                  int                         monitor_iter,
                   std::vector < std::string > field_files,
                   std::vector < std::string > field_datasets,
                   std::vector < std::string > field_coords,
@@ -53,13 +54,13 @@ public: // interface
 
   /// CHARM++ Pack / Unpack function
   void pup (PUP::er &p);
-  
+
   /// Initialize a Block
   virtual void enforce_block
   ( Block * block, const Hierarchy * hierarchy ) throw();
 
   void recv_data (Block * block, MsgInitial * msg_initial);
-  
+
   void copy_dataset_to_field_
   (Block * block,
    std::string field_name, int type_data,
@@ -96,6 +97,7 @@ protected: // functions
     } else if (type_data == type_double) {
       data = (char *)new double [n];
     } else {
+      data = nullptr;
       ERROR1 ("EnzoInitialHdf5::allocate_array_()",
               "Unsupported data type %d",type_data);
     }
@@ -161,6 +163,10 @@ protected: // attributes
   /// blocks within a partition are read from a single root-level
   /// Block
   int         blocking_[3];
+
+  /// Parameter for controling monitoring of progress
+  int         monitor_iter_;
+
   vecstr_type field_files_;
   vecstr_type field_datasets_;
   vecstr_type field_coords_;

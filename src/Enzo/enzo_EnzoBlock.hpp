@@ -10,6 +10,8 @@
 
 //----------------------------------------------------------------------
 
+// #define TRACE_BLOCK
+
 #include "enzo.decl.h"
 
 class EnzoBlock : public CBase_EnzoBlock
@@ -51,7 +53,6 @@ public:
   // Physics
 
   static int PressureFree[CONFIG_NODE_SIZE];
-  static enzo_float Gamma[CONFIG_NODE_SIZE];
   static enzo_float GravitationalConstant[CONFIG_NODE_SIZE];
 
   // Problem-specific
@@ -69,15 +70,6 @@ public:
   //  static int ProcessorNumber;
 
   // Numerics
-
-  static int DualEnergyFormalism[CONFIG_NODE_SIZE];
-  static enzo_float DualEnergyFormalismEta1[CONFIG_NODE_SIZE];
-  static enzo_float DualEnergyFormalismEta2[CONFIG_NODE_SIZE];
-
-  static enzo_float pressure_floor[CONFIG_NODE_SIZE];
-  static enzo_float density_floor[CONFIG_NODE_SIZE];
-  static enzo_float number_density_floor[CONFIG_NODE_SIZE];
-  static enzo_float temperature_floor[CONFIG_NODE_SIZE];
 
   static enzo_float InitialRedshift[CONFIG_NODE_SIZE];
   static enzo_float InitialTimeInCodeUnits[CONFIG_NODE_SIZE];
@@ -99,14 +91,19 @@ public:
 
 public: // interface
 
+#ifdef BYPASS_CHARM_MEM_LEAK
   /// Initialize the EnzoBlock chare array
-  EnzoBlock ( MsgRefine * msg );
-
-  /// Initialize the EnzoBlock chare array
-  EnzoBlock ( process_type ip_source );
-
+  
+  EnzoBlock ( process_type ip_source, MsgType msg_type );
   /// Initialize EnzoBlock using MsgRefine returned by creating process
   virtual void p_set_msg_refine(MsgRefine * msg);
+  virtual void p_set_msg_check(EnzoMsgCheck * msg);
+
+#else
+  /// Initialize the EnzoBlock chare array
+  EnzoBlock ( MsgRefine * msg );
+  EnzoBlock ( EnzoMsgCheck * msg );
+#endif
 
   /// Initialize an empty EnzoBlock
   EnzoBlock()
@@ -115,6 +112,9 @@ public: // interface
        redshift(0.0)
   {
     performance_start_(perf_block);
+#ifdef TRACE_BLOCK
+    CkPrintf ("%d %p TRACE_BLOCK EnzoBlock()\n",CkMyPe(),(void *)this);
+#endif
     for (int i=0; i<MAX_DIMENSION; i++) {
       GridLeftEdge[i] = 0;
       GridDimension[i] = 0;
@@ -131,6 +131,10 @@ public: // interface
       dt(0.0),
       redshift(0.0)
   {
+#ifdef TRACE_BLOCK
+    CkPrintf ("%d %p TRACE_BLOCK %s EnzoBlock(CkMigrateMessage)\n",
+              CkMyPe(),(void *)this, name(thisIndex).c_str());
+#endif
     performance_start_(perf_block);
     TRACE("CkMigrateMessage");
     for (int i=0; i<MAX_DIMENSION; i++) {
@@ -144,13 +148,11 @@ public: // interface
   CkPrintf ("%d %p TRACE_BLOCK EnzoBlock(CkMigrateMessage *)\n",CkMyPe(),(void *)this);
   print();
 #endif
+    performance_start_(perf_block);
   }
 
   /// Pack / unpack the EnzoBlock in a CHARM++ program
   void pup(PUP::er &p);
-
-  /// Implementation of initialization in constructors
-  void initialize_enzo_();
 
   /// Destructor
   virtual ~EnzoBlock();
@@ -224,7 +226,36 @@ public: /// entry methods
   void p_method_gravity_end();
 
   //--------------------------------------------------
+  /// Checkpoint
+  //--------------------------------------------------
 
+  /// Call to Block array to self-identify as "first" when writing
+  /// checkpoint files based on Ordering object
+  void p_check_write_first(int num_files, std::string ordering, std::string);
+
+  /// Call to single Block to return data for checkpoint
+  void p_check_write_next(int num_files, std::string ordering);
+
+  /// Exit EnzoMethodCheck
+  void p_check_done();
+
+  /// Initialize restart data in existing Block (level == 0)
+  void p_restart_set_data(EnzoMsgCheck * );
+
+  /// Refine to create the specified child in this block
+  void p_restart_refine (int ic3[3], int io_reader);
+  
+  /// Exit restart
+  void p_restart_done();
+
+  //--------------------------------------------------
+
+  /// Synchronize for accumulate refresh before adding the
+  /// sink fields.
+  void p_method_accretion_end();
+
+  // ------------------------------------------------
+  
   /// EnzoSolverCg entry method: DOT ==> refresh P
   void r_solver_cg_loop_0a (CkReductionMsg * msg);
 
@@ -325,19 +356,36 @@ public: /// entry methods
   //  void p_method_multipole_restrict();
   void p_method_multipole_restrict_recv(MultipoleMsg * msg);
 
-  void print() {
+  // EnzoMethodFeedbackSTARSS
+
+  void p_method_feedback_starss_end();
+
+  virtual void print() const {
+    CkPrintf ("PRINT_ENZO_BLOCK name = %s\n",name().c_str());
+    CkPrintf ("PRINT_ENZO_BLOCK dt = %g\n",dt);
+    CkPrintf ("PRINT_ENZO_BLOCK redshift = %g\n",redshift);
+    CkPrintf ("PRINT_ENZO_BLOCK GridLeftEdge[] = %g %g %g\n",GridLeftEdge[0],GridLeftEdge[1],GridLeftEdge[2]);
+    CkPrintf ("PRINT_ENZO_BLOCK GridDimension[] = %d %d %d\n",GridDimension[0],GridDimension[1],GridDimension[2]);
+    CkPrintf ("PRINT_ENZO_BLOCK GridStartIndex[] = %d %d %d\n",GridStartIndex[0],GridStartIndex[1],GridStartIndex[2]);
+    CkPrintf ("PRINT_ENZO_BLOCK GridEndIndex[] = %d %d %d\n",GridEndIndex[0],GridEndIndex[1],GridEndIndex[2]);
+    CkPrintf ("PRINT_ENZO_BLOCK CellWidth[] = %g %g %g\n",CellWidth[0],CellWidth[1],CellWidth[2]);
     Block::print();
-    CkPrintf ("dt = %g\n",dt);
-    CkPrintf ("redshift = %g\n",redshift);
-    CkPrintf ("GridLeftEdge[] = %g %g %g\n",GridLeftEdge[0],GridLeftEdge[1],GridLeftEdge[2]);
-    CkPrintf ("GridDimension[] = %d %d %d\n",GridDimension[0],GridDimension[1],GridDimension[2]);
-    CkPrintf ("GridStartIndex[] = %d %d %d\n",GridStartIndex[0],GridStartIndex[1],GridStartIndex[2]);
-    CkPrintf ("GridEndIndex[] = %d %d %d\n",GridEndIndex[0],GridEndIndex[1],GridEndIndex[2]);
-    CkPrintf ("CellWidth[] = %g %g %g\n",CellWidth[0],CellWidth[1],CellWidth[2]);
   }
 
-protected: // attributes
+protected: // methods
 
+  /// Create EnzoMsgCheck, returning file file index
+  int create_msg_check_
+  ( EnzoMsgCheck ** msg_check, int num_files, std::string ordering,
+    std::string name_dir = "", bool * is_first = nullptr);
+
+  /// Initialize restart data in Block
+  void restart_set_data_(EnzoMsgCheck * );
+
+  /// Create a DataMsg object for this block
+  DataMsg *create_data_msg_();
+
+protected: // attributes
 
 public: // attributes (YIKES!)
 
