@@ -284,8 +284,16 @@ module enzo {
 
     // EnzoMethodMultipole
 
-   // entry void p_method_multipole_restrict();
     entry void p_method_multipole_restrict_recv(MultipoleMsg * msg);
+    entry void p_method_multipole_prolong_recv(MultipoleMsg * msg);
+    entry void p_method_multipole_traverse(Index index, int type);
+    entry void p_method_multipole_update_volume(Index index, int volume);
+    entry void p_method_multipole_interact_approx(MultipoleMsg * msg);
+    entry void p_method_multipole_interact_direct(MultipoleMsg * msg);
+    entry void p_method_multipole_interact_approx_send(Index receiver);
+    entry void p_method_multipole_interact_direct_send(Index receiver);
+    entry void r_method_multipole_dualwalk_barrier(CkReductionMsg* msg);
+    entry void r_method_multipole_traverse_complete(CkReductionMsg* msg);
 
   };
 

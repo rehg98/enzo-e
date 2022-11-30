@@ -63,7 +63,7 @@ Block::Block ( process_type ip_source, MsgType msg_type )
     adapt_balanced_(false),
     adapt_changed_(0),
     coarsened_(false),
-    is_leaf_((thisIndex.level() >= 0)),
+    is_leaf_(true),
     age_(0),
     name_(""),
     index_method_(-1),
@@ -150,7 +150,7 @@ Block::Block ( MsgRefine * msg )
     adapt_balanced_(false),
     adapt_changed_(0),
     coarsened_(false),
-    is_leaf_((thisIndex.level() >= 0)),
+    is_leaf_(true),
     age_(0),
     name_(""),
     index_method_(-1),
@@ -692,7 +692,7 @@ Block::Block ()
     adapt_balanced_(false),
     adapt_changed_(0),
     coarsened_(false),
-    is_leaf_((thisIndex.level() >= 0)),
+    is_leaf_(true),
     age_(0),
     name_(""),
     index_method_(-1),
@@ -729,7 +729,7 @@ Block::Block (CkMigrateMessage *m)
     adapt_balanced_(false),
     adapt_changed_(0),
     coarsened_(false),
-    is_leaf_((thisIndex.level() >= 0)),
+    is_leaf_(true),
     age_(0),
     name_(""),
     index_method_(-1),
@@ -872,12 +872,13 @@ void Block::size_array (int * nx, int * ny, int * nz) const throw ()
 //----------------------------------------------------------------------
 
 void Block::lower
-(double * xm, double * ym, double * zm) const throw ()
+(double * xm, double * ym, double * zm, const Index * index) const throw ()
 {
-  int  ix, iy, iz;
-  int  nx, ny, nz;
+  if (index == nullptr) index = &index_;
+  int  ix=0, iy=0, iz=0;
+  int  nx=1, ny=1, nz=1;
 
-  index_global (&ix,&iy,&iz,&nx,&ny,&nz);
+  index_global (&ix,&iy,&iz,&nx,&ny,&nz, index);
 
   Hierarchy * hierarchy = cello::hierarchy();
   double xdm, ydm, zdm;
@@ -901,12 +902,13 @@ void Block::lower
 //----------------------------------------------------------------------
 
 void Block::upper
-(double * xp, double * yp, double * zp) const throw ()
+(double * xp, double * yp, double * zp, const Index * index) const throw ()
 {
+  if (index == nullptr) index = &index_;
   int  ix, iy, iz;
   int  nx, ny, nz;
 
-  index_global (&ix,&iy,&iz,&nx,&ny,&nz);
+  index_global (&ix,&iy,&iz,&nx,&ny,&nz, index);
 
   Hierarchy * hierarchy = cello::hierarchy();
   double xdm, ydm, zdm;
@@ -929,6 +931,42 @@ void Block::upper
 
 //----------------------------------------------------------------------
 
+void Block::index_global
+( int *ix, int *iy, int *iz,
+  int *nx, int *ny, int *nz,
+  const Index * index) const
+{
+  if (index == nullptr) index = &index_;
+  int min_level = cello::config()->mesh_min_level;
+  const int rank = cello::rank();
+  index->array(ix,iy,iz);
+  size_array (nx,ny,nz);
+  const int level = index->level();
+  int tx,ty,tz;
+  index->tree(&tx,&ty,&tz);
+
+  if (level < 0 ) {
+    for (int i=level; i<0; i++) {
+      if (nx && rank>=1) (*nx) >>= 1;
+      if (ny && rank>=2) (*ny) >>= 1;
+      if (nz && rank>=3) (*nz) >>= 1;
+    }
+  }  else if (0 < level) {
+    for (int i=0; i<level; i++) {
+      int bx,by,bz;
+      index->child(i+1,&bx,&by,&bz,min_level);
+      if (ix && rank>=1) (*ix) = ((*ix) << 1) | bx;
+      if (iy && rank>=2) (*iy) = ((*iy) << 1) | by;
+      if (iz && rank>=3) (*iz) = ((*iz) << 1) | bz;
+      if (nx && rank>=1) (*nx) <<= 1;
+      if (ny && rank>=2) (*ny) <<= 1;
+      if (nz && rank>=3) (*nz) <<= 1;
+    }
+  }
+}
+
+//----------------------------------------------------------------------
+
 void Block::cell_width
 (double * dx, double * dy, double * dz) const throw()
 {
@@ -937,43 +975,6 @@ void Block::cell_width
   double xp,yp,zp;
   upper(&xp,&yp,&zp);
   data()->field_data()->cell_width(xm,xp,dx, ym,yp,dy, zm,zp,dz);
-}
-
-//----------------------------------------------------------------------
-
-void Block::index_global
-( int *ix, int *iy, int *iz,
-  int *nx, int *ny, int *nz ) const
-{
-
-  index_array(ix,iy,iz);
-  size_array (nx,ny,nz);
-
-  Index index = this->index();
-
-  const int level = this->level();
-
-  if (level < 0 ) {
-    for (int i=level; i<0; i++) {
-      if (ix) (*ix) = ((*ix) >> 1);
-      if (iy) (*iy) = ((*iy) >> 1);
-      if (iz) (*iz) = ((*iz) >> 1);
-      if (nx) (*nx) >>= 1;
-      if (ny) (*ny) >>= 1;
-      if (nz) (*nz) >>= 1;
-    }
-  }  else if (0 < level) {
-    for (int i=0; i<level; i++) {
-      int bx,by,bz;
-      index.child(i+1,&bx,&by,&bz);
-      if (ix) (*ix) = ((*ix) << 1) | bx;
-      if (iy) (*iy) = ((*iy) << 1) | by;
-      if (iz) (*iz) = ((*iz) << 1) | bz;
-      if (nx) (*nx) <<= 1;
-      if (ny) (*ny) <<= 1;
-      if (nz) (*nz) <<= 1;
-    }
-  }
 }
 
 //----------------------------------------------------------------------
@@ -1223,4 +1224,3 @@ bool Block::check_position_in_block
 
   return result;
 }
-

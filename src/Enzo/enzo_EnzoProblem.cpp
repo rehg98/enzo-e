@@ -634,8 +634,7 @@ Method * EnzoProblem::create_method_
 
     method = new EnzoMethodMultipole
       (enzo_config->method_multipole_timeStep,
-       enzo_config->method_multipole_maxLevel);
-       // config->adapt_max_level[index_method]);
+       enzo_config->method_multipole_theta);   
 
   } else if (name == "heat") {
 

@@ -1,3 +1,4 @@
+
 # Problem: Compute multipoles
 # Author:  Ryan Golant (ryan.golant@columbia.edu)
 #
@@ -8,8 +9,8 @@
 #======================================================================
 
  Domain {
-     lower = [ 0.0, 0.0 ];
-     upper = [ 1.0, 1.0 ];
+     lower = [ -0.5, -0.5 ];
+     upper = [ 0.5, 0.5 ];
  }
 
  Initial {
@@ -17,6 +18,7 @@
 
     value {
         density = [ 1.00 ];
+	# density = [10.0, y >= 0.0, 1.0];
     }
     
  }
@@ -44,13 +46,15 @@
  Adapt {
      list = [ "density" ];
      # list = [ "slope" ];
+     
      max_level = 1;
+
      density {
          field_list = [ "density" ];
-         max_coarsen = 0.0;
+         max_coarsen = 0.00;
          min_refine = 0.99;
          type = "density";
-	 # type = "slope";
+	    # type = "slope";
      }
  }
 
@@ -74,7 +78,7 @@
 
      multipole {
          timeStep = 10000.0;
-	 maxLevel = 1;
+	 theta = 0.1;
      }
  }
 

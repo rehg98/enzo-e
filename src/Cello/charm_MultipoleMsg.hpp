@@ -23,8 +23,25 @@ public: // attributes
   /// quadrupole moment
   double quadrupole[9];
 
+  /// first Taylor coefficient
+  double c1[3];
+
+  /// second Taylor coefficient
+  double c2[9];
+
+  /// third Taylor coefficient
+  double c3[27];
+
   /// Child indices
   int ic3[3];
+
+
+  /// lower left corner of Block
+  double lo[3];
+
+  /// density field
+  std::vector<double> dens;
+  
 };
 
 #endif /* CHARM_MULTIPOLE_MSG_HPP */

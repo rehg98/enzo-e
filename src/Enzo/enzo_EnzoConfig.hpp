@@ -356,7 +356,7 @@ public: // interface
       method_hello_maxLevel(5),
       // EnzoMethodMultipole
       method_multipole_timeStep(10000.0),
-      method_multipole_maxLevel(5),
+      method_multipole_theta(0),
       // EnzoMethodHydro
       method_hydro_method(""),
       method_hydro_dual_energy(false),
@@ -839,7 +839,7 @@ public: // attributes
 
   /// EnzoMethodMultipole
   double                     method_multipole_timeStep;
-  int                        method_multipole_maxLevel;
+  double                     method_multipole_theta;
   
   /// EnzoMethodHydro
   std::string                method_hydro_method;

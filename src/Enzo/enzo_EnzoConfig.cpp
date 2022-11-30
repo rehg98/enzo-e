@@ -229,7 +229,7 @@ EnzoConfig::EnzoConfig() throw ()
   method_hello_maxLevel(5),
   // EnzoMethodMultipole
   method_multipole_timeStep(10000.0),
-  method_multipole_maxLevel(5),
+  method_multipole_theta(0),
   // EnzoMethodHydro
   method_hydro_method(""),
   method_hydro_dual_energy(false),
@@ -629,7 +629,7 @@ void EnzoConfig::pup (PUP::er &p)
   p | method_hello_maxLevel;
 
   p | method_multipole_timeStep;
-  p | method_multipole_maxLevel;
+  p | method_multipole_theta;
 
   p | method_hydro_method;
   p | method_hydro_dual_energy;
@@ -1928,8 +1928,8 @@ void EnzoConfig::read_method_multipole_(Parameters * p)
   method_multipole_timeStep = p->value_float
     ("Method:multipole:timeStep",10000.0);
 
-  method_multipole_maxLevel = p->value_integer
-    ("Method:multipole:maxLevel",5);
+  method_multipole_theta = p->value_float
+    ("Method:multipole:theta",0);
 }
 
 //----------------------------------------------------------------------

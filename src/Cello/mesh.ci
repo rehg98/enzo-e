@@ -85,6 +85,7 @@ module mesh {
 
   message MsgAdapt;
   message MultipoleMsg;
+  message DensMsg;
   message MsgCoarsen;
   message MsgInitial;
   message MsgOutput;
