@@ -1,24 +1,22 @@
-
-# Problem: Compute multipoles
+# Problem: Simple "hello world" test
 # Author:  Ryan Golant (ryan.golant@columbia.edu)
 #
-# July 19, 2022
+# May 17, 2022
 
 #======================================================================
 # PROBLEM DEFINITION
 #======================================================================
 
  Domain {
-     lower = [ -0.5, -0.5 ];
-     upper = [ 0.5, 0.5 ];
+     lower = [ 0.0, 0.0 ];
+     upper = [ 1.0, 1.0 ];
  }
 
  Initial {
     list = ["value"];
 
     value {
-        density = [ 1.00 ];
-	# density = [10.0, y >= 0.0, 0.1];
+        temperature = [ 1.00, "input/enzop-cello-half.png", 0.010000 ];
     }
     
  }
@@ -28,7 +26,7 @@
  }
 
  Stopping {
-     cycle = 1;
+     cycle = 10;
     # time = 0.10000;
  }
 
@@ -38,31 +36,27 @@
 
  Mesh {
      root_rank = 2;
-     root_size   = [ 2, 2 ];  # total number of cells in root grid
-     root_blocks = [  1,  1 ];  # number of blocks in root grid
+     root_size   = [ 64, 32 ];  # total number of cells in root grid
+     root_blocks = [  4,  2 ];  # number of blocks in root grid
                                 # (so block size = (64/4,32/2) = (16,16)
  }
 
  Adapt {
-     list = [ "density" ];
-     # list = [ "slope" ];
-     
-     max_level = 1;
-
-     density {
-         field_list = [ "density" ];
-         max_coarsen = 0.00;
-         min_refine = 0.99;
-         type = "density";
-	    # type = "slope";
+     list = [ "slope" ];
+     max_level = 5;
+     slope {
+         field_list = [ "temperature" ];
+         max_coarsen = 10.0;
+         min_refine = 20.0;
+         type = "slope";
      }
  }
 
  Field {
      alignment = 8;
      gamma = 1.4000;
-     ghost_depth = 1;
-     list = [ "density" ];
+     ghost_depth = 4;
+     list = [ "temperature" ];
      padding = 0;
  }
 
@@ -72,13 +66,13 @@
 
  Method {
 
-     # "multipole": compute multipoles and pass multipoles up octree
+     # "hello": simple "hello world" test
 
-     list = [ "multipole" ];
+     list = [ "hello" ];
 
-     multipole {
+     hello {
          timeStep = 10000.0;
-	 theta = 1.0;
+	 maxLevel = 5;
      }
  }
 

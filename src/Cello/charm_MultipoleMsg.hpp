@@ -10,7 +10,35 @@
 
 class MultipoleMsg : public CMessage_MultipoleMsg {
 
+// public:
+//   MultipoleMsg();
+//   ~MultipoleMsg();
+
+//   MultipoleMsg(const MultipoleMsg&) {
+//     ERROR ("MultipoleMsg::MultipoleMsg",
+// 	     "copy constructor not supported");
+//   }
+  
+//   MultipoleMsg & operator= (const MultipoleMsg & data_msg) throw() {
+//      ERROR ("MultipoleMsg::MultipoleMsg",
+// 	     "copy assignment not supported");
+//   } 
+
+// public: // static methods
+
+//   /// Pack data to serialize
+//   static void * pack (MultipoleMsg*);
+
+//   /// Unpack data to de-serialize
+//   static MultipoleMsg * unpack(void *);
+
+//   void set_data_msg  (DataMsg * data_msg);
+
+//   void update (Data * data);
+  
+
 public: // attributes
+
 
   int child_index() const { return ic3[0] + 2*(ic3[1] + 2*(ic3[2])); }
   
@@ -37,10 +65,16 @@ public: // attributes
 
 
   /// lower left corner of Block
-  double lo[3];
+  // double lo[3];
+
+  // double up[3];
+
+  // int size[3];
 
   /// density field
-  std::vector<double> dens;
+  // DataMsg * data_msg_;
+
+  // void * buffer_;
   
 };
 

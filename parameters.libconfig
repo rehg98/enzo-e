@@ -1,0 +1,56 @@
+ Adapt : {
+     density : {
+         field_list = ( "density" );
+         max_coarsen = 0.000000000000000;
+         min_refine = 0.9900000000000000;
+         type = "density";
+     };
+     list = ( "density" );
+     max_level = 1;
+ }
+
+ Boundary : {
+     type = "periodic";
+ }
+
+ Domain : {
+     lower = ( -0.5000000000000000, -0.5000000000000000 );
+     upper = ( 0.5000000000000000, 0.5000000000000000 );
+ }
+
+ Field : {
+     alignment = 8;
+     gamma = 1.400000000000000;
+     ghost_depth = 1;
+     list = ( "density" );
+     padding = 0;
+ }
+
+ Initial : {
+     list = ( "value" );
+     value : {
+         density = ( 1.000000000000000 );
+     };
+ }
+
+ Mesh : {
+     root_blocks = ( 1, 1 );
+     root_rank = 2;
+     root_size = ( 2, 2 );
+ }
+
+ Method : {
+     list = ( "multipole" );
+     multipole : {
+         theta = 1.000000000000000;
+         timeStep = 10000.00000000000;
+     };
+ }
+
+ Output : {
+     list = (  );
+ }
+
+ Stopping : {
+     cycle = 1;
+ }

@@ -114,7 +114,7 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
   *mass = 0;
 
   for (int i = 0; i < 3; i++){
-    com[i]  = 0;   // replace with pcom[i] shorthand?
+    com[i]  = 0;   
   }
   
   for (int i = 0; i < 9; i++){
@@ -1146,7 +1146,6 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
 
 
 
-// replace with code to compute direct forces between leaf nodes?
 void EnzoMethodMultipole::traverse_direct_pair
 (EnzoBlock * enzo_block,
  Index index_a, int volume_a,
@@ -1156,8 +1155,9 @@ void EnzoMethodMultipole::traverse_direct_pair
   CkPrintf("traverse direct pair\n");
 
   // compute the a->b interaction
-  MultipoleMsg * msg_a = pack_dens_(enzo_block);
-  enzo::block_array()[index_b].p_method_multipole_interact_direct (msg_a);
+  pack_dens_(enzo_block, index_b);
+  // char * msg_a = pack_dens_(enzo_block);
+  //enzo::block_array()[index_b].p_method_multipole_interact_direct (msg_a);
 
   // compute the b->a interaction
   enzo::block_array()[index_b].p_method_multipole_interact_direct_send (index_a);
@@ -1187,7 +1187,7 @@ void EnzoMethodMultipole::traverse_direct_pair
 
 }
 
-void EnzoBlock::p_method_multipole_interact_direct (MultipoleMsg * msg)
+void EnzoBlock::p_method_multipole_interact_direct (int n, const char msg[n])
 {
   EnzoMethodMultipole * method = static_cast<EnzoMethodMultipole*> (this->method());
   method->interact_direct_ (this, msg);
@@ -1201,70 +1201,66 @@ void EnzoBlock::p_method_multipole_interact_direct_send (Index receiver)
 
 void EnzoMethodMultipole::interact_direct_send(EnzoBlock * enzo_block, Index receiver) throw()
 {
-  MultipoleMsg * msg = pack_dens_(enzo_block);
-  enzo::block_array()[receiver].p_method_multipole_interact_direct(msg);
+  pack_dens_(enzo_block, receiver);
+  // char * msg = pack_dens_(enzo_block);
+  // enzo::block_array()[receiver].p_method_multipole_interact_direct(msg);
 }
 
 
-MultipoleMsg * EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block) throw()
+void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) throw()
 {
- 
-  // Create a MultipoleMsg for sending cell data
-
-  std::string string = enzo_block->name();
-  CkPrintf("block name = %s\n", string.c_str());
- 
-  MultipoleMsg * msg  = new MultipoleMsg;
-
   Data * data = enzo_block->data();
   Field field = data->field();
-  
+
   enzo_float * dens = (enzo_float*) field.values ("density");
 
   int mx, my, mz;
   int gx, gy, gz;
   double hx, hy, hz;
+  double lo[3];
 
   field.dimensions  (0, &mx, &my, &mz);
   field.ghost_depth (0, &gx, &gy, &gz);
 
   enzo_block->cell_width(&hx, &hy, &hz);
   hz = 1.0; // this is to make math easier -- delete later
-  double cell_vol = hx * hy * hz;
+  //double cell_vol = hx * hy * hz;
 
-  enzo_block->lower(msg->lo, msg->lo+1, msg->lo+2);
+  enzo_block->lower(lo, lo+1, lo+2);
 
-  CkPrintf("before resize\n");
-  CkPrintf("num cells: %d %d %d\n", mx, my, mz);
+  int size = 0;
 
-  msg->dens.resize((mx-2*gx) * (my-2*gy) * (mz-2*gz));
+  SIZE_SCALAR_TYPE(size, int, mx);
+  SIZE_SCALAR_TYPE(size, int, my);
+  SIZE_SCALAR_TYPE(size, int, mz);
+  SIZE_SCALAR_TYPE(size, double, hx);
+  SIZE_SCALAR_TYPE(size, double, hy);
+  SIZE_SCALAR_TYPE(size, double, hz);
+  SIZE_ARRAY_TYPE(size, double, lo, 3);
+  SIZE_ARRAY_TYPE(size, enzo_float, dens, mx*my*mz);
 
-  CkPrintf("dens size: %d\n", msg->dens.size());
+  char * buffer = new char[size];
 
-  
-  // loop over all cells
-  for (int iz = gz; iz < mz-gz; iz++) {
-    for (int iy = gy; iy < my-gy; iy++) {
-      for (int ix = gx; ix < mx-gx; ix++) {
+  char * pc; 
+  pc = buffer;
 
-        int i = ix + mx*(iy + my*iz);
+  SAVE_SCALAR_TYPE(pc, int, mx);
+  SAVE_SCALAR_TYPE(pc, int, my);
+  SAVE_SCALAR_TYPE(pc, int, mz);
+  SAVE_SCALAR_TYPE(pc, double, hx);
+  SAVE_SCALAR_TYPE(pc, double, hy);
+  SAVE_SCALAR_TYPE(pc, double, hz);
+  SAVE_ARRAY_TYPE(pc, double, lo, 3);
+  SAVE_ARRAY_TYPE(pc, enzo_float, dens, mx*my*mz);
 
-        msg->dens[i] = dens[i];
 
-        CkPrintf("density: %f\n", msg->dens[i]);
+  #return buffer;
 
-      }
-    }
-  }
-
-  
-
-  return msg;
-
+  enzo::block_array()[index_b].p_method_multipole_interact_direct (size, buffer);
 }
 
 
-void EnzoMethodMultipole::interact_direct_(Block * block, MultipoleMsg * msg_b) throw()
+void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
 {
   CkPrintf("in interact_direct\n");
 
@@ -1290,7 +1286,51 @@ void EnzoMethodMultipole::interact_direct_(Block * block, MultipoleMsg * msg_b) 
   double lo[3];
   block->lower(lo, lo+1, lo+2);
 
+  // unpacking data from msg_b
+  int mx2, my2, mz2;
+  int gx2, gy2, gz2;
+  double hx2, hy2, hz2;
+  double lo2[3];
+  enzo_float * dens;
+
+  char * pc;
+  pc = msg_b;
+
+  LOAD_SCALAR_TYPE(pc, int, mx2);
+  LOAD_SCALAR_TYPE(pc, int, my2);
+  LOAD_SCALAR_TYPE(pc, int, mz2);
+  LOAD_SCALAR_TYPE(pc, double, hx2);
+  LOAD_SCALAR_TYPE(pc, double, hy2);
+  LOAD_SCALAR_TYPE(pc, double, hz2);
+  LOAD_ARRAY_TYPE(pc, double, lo2, 3);
+  LOAD_ARRAY_TYPE(pc, enzo_float, dens, mx2*my2*mz2);
   
+  // assuming field size is identical for all blocks
+  // int size[3];
+  // field.size(size, size+1, size+2);
+
+  // int num_field_data = 1;
+  // Data data_other = Data
+  //   (size[0],size[1],size[2],
+  //    num_field_data,
+  //    msg_b->lo[0], msg_b->lo[1], msg_b->lo[2],
+  //    msg_b->up[0], msg_b->up[1], msg_b->up[2],
+  //    cello::field_descr(),
+  //    cello::particle_descr());
+
+  // data_other.allocate();
+
+  // msg_b->update(&data_other);
+
+  // Field field_other = data_other.field();
+  // enzo_float * dens = (enzo_float*) field_other.values ("density");
+
+
+  // Field field_other;
+  // field_face -> array_to_face(a, field)
+
+
+
   // loop over all cells in this Block
   for (int iz = gz; iz < mz-gz; iz++) {
     for (int iy = gy; iy < my-gy; iy++) {
@@ -1302,19 +1342,20 @@ void EnzoMethodMultipole::interact_direct_(Block * block, MultipoleMsg * msg_b) 
         std::vector<double> tot_cell_force (3, 0); // for debugging purposes
 
         // compute force sourced from cells in Block b
-        for (int iz2 = gz; iz2 < mz-gz; iz2++) {
-          for (int iy2 = gy; iy2 < my-gy; iy2++) {
-            for (int ix2 = gx; ix2 < mx-gx; ix2++) {
+        for (int iz2 = gz2; iz2 < mz2-gz2; iz2++) {
+          for (int iy2 = gy2; iy2 < my2-gy2; iy2++) {
+            for (int ix2 = gx2; ix2 < mx2-gx2; ix2++) {
 
-              int i2 = ix2 + mx*(iy2 + my*iz2);
+              int i2 = ix2 + mx2*(iy2 + my2*iz2);
               
               // disp points from cell in current Block to cell in Block b
               std::vector<double> disp (3, 0);
-              disp[0] = msg_b->lo[0] - lo[0] + (ix2 - ix)*hx; 
-              disp[1] = msg_b->lo[1] - lo[1] + (iy2 - iy)*hy;
-              disp[2] = msg_b->lo[2] - lo[2] + (iz2 - iz)*hz;
+              disp[0] = lo2[0] - lo[0] + (ix2 - ix)*hx; 
+              disp[1] = lo2[1] - lo[1] + (iy2 - iy)*hy;
+              disp[2] = lo2[2] - lo[2] + (iz2 - iz)*hz;
                 
-              std::vector<double> cell_force = newton_force_(msg_b->dens[i2]*cell_vol, disp); 
+              std::vector<double> cell_force = newton_force_(dens[i2]*cell_vol, disp); 
+              CkPrintf("dens: %f\n", dens[i2]);
 
               accel_x[i] += cell_force[0];
               accel_y[i] += cell_force[1];
@@ -1416,6 +1457,7 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
   *rb = 0.5*sqrt(*rb);
 
   return  (d * theta_ > (*ra + *rb));
+  //return (d * theta_ > (ra3[0] + rb3[0]));
 }
 
 /************************************************************************/

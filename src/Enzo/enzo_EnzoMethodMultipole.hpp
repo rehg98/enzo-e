@@ -197,7 +197,7 @@ protected: // methods
 public:
 
   void interact_approx_ (Block * block, MultipoleMsg * msg_b) throw(); // compute Taylor coeffs for two interacting blocks
-  void interact_direct_ (Block * block, MultipoleMsg * msg_b) throw(); // compute Taylor coeffs for two interacting blocks
+  void interact_direct_ (Block * block, char * msg_b) throw(); // compute Taylor coeffs for two interacting blocks
 
   void interact_approx_send(EnzoBlock * enzo_block, Index receiver) throw();
   void interact_direct_send(EnzoBlock * enzo_block, Index receiver) throw();
@@ -217,7 +217,7 @@ public:
                             Index index_a, int volume_a,
                             Index index_b, int volume_b);
 
-  MultipoleMsg * pack_dens_ (EnzoBlock * enzo_block) throw(); 
+  void pack_dens_ (EnzoBlock * enzo_block, Index index_b) throw(); 
 
   void update_volume (EnzoBlock * enzo_block, Index index, int volume);
 
@@ -232,6 +232,8 @@ protected:
 
 
   /**********   convenience functions for tensor arithmetic ***********/
+
+  // consider changing std::vector to std::array; may need to include <array> header
 
   std::vector<double> shift_quadrupole_(double * old_quadrupole, double tot_mass, double * old_com, double * new_com) throw()
   {

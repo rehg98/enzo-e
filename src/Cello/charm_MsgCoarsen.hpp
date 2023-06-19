@@ -86,5 +86,8 @@ protected: // attributes
 
 };
 
+
+
+
 #endif /* CHARM_MSG_HPP */
 

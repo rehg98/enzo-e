@@ -358,7 +358,7 @@ public: /// entry methods
   void p_method_multipole_traverse(Index index, int type);
   void p_method_multipole_update_volume(Index index, int volume);
   void p_method_multipole_interact_approx(MultipoleMsg * msg);
-  void p_method_multipole_interact_direct(MultipoleMsg * msg);
+  void p_method_multipole_interact_direct(int n, const char msg[n]);
   void p_method_multipole_interact_approx_send(Index receiver);
   void p_method_multipole_interact_direct_send(Index receiver);
   void r_method_multipole_dualwalk_barrier(CkReductionMsg* msg);
