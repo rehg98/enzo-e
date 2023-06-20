@@ -47,7 +47,7 @@
      list = [ "density" ];
      # list = [ "slope" ];
      
-     max_level = 1;
+     max_level = 3;
 
      density {
          field_list = [ "density" ];
