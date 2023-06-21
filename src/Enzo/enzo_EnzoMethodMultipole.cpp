@@ -202,7 +202,6 @@ void EnzoMethodMultipole::compute_ (Block * block) throw()
   } else {
 
     if (0 <= level && level < cello::hierarchy()->max_level() ) {
-      //CkPrintf("Non-leaf mass: %f\n", *mass);
       restrict_recv(enzo_block, nullptr);
     }
   }
@@ -392,11 +391,7 @@ void EnzoBlock::p_method_multipole_restrict_recv(MultipoleMsg * msg)
 void EnzoMethodMultipole::restrict_recv
 (EnzoBlock * enzo_block, MultipoleMsg * msg) throw()
 {
-  // double * mass_ = pmass(enzo_block);
-  // double * com_ = pcom(enzo_block);
-  // double * quadrupole_ = pquadrupole(enzo_block);
   
-
   // Save multipole message from child
   if (msg != nullptr)
     {
@@ -422,7 +417,6 @@ void EnzoMethodMultipole::restrict_recv
 
 void EnzoMethodMultipole::prolong_send(EnzoBlock * enzo_block) throw()
 {
-  //CkPrintf("made it to prolong_send\n");
 
   ItChild it_child(cello::rank());
   int ic3[3];
@@ -433,11 +427,7 @@ void EnzoMethodMultipole::prolong_send(EnzoBlock * enzo_block) throw()
 
   while (it_child.next(ic3)) {
 
-    //CkPrintf("in child loop\n");
-
     MultipoleMsg * msg = pack_coeffs_(enzo_block);
-    //CkPrintf("packed coeffs\n");
-    //CkPrintf("message c1[0]: %f\n", msg->c1[0]);
 
     Index index_child = enzo_block->index().index_child(ic3, cello::hierarchy()->min_level());
 
@@ -463,21 +453,10 @@ void EnzoBlock::p_method_multipole_prolong_recv(MultipoleMsg * msg)
 void EnzoMethodMultipole::prolong_recv
 (EnzoBlock * enzo_block, MultipoleMsg * msg) throw()
 {
-  // double * mass_ = pmass(enzo_block);
-  // double * com_ = pcom(enzo_block);
-  // double * quadrupole_ = pquadrupole(enzo_block);
-
-  //std::string string = enzo_block->name();
-  //CkPrintf("receiving block name = %s\n", string.c_str());
-  //fflush(stdout);
-  
-  // CkPrintf("made it to prolong_recv\n");
-  //CkPrintf("message com[0] in prolong_recv: %f\n", msg->com[0]);
 
   // Save multipole message from parent
   if (msg != nullptr)
     {
-      //CkPrintf("is msg a nullptr?\n");
 
       MultipoleMsg ** temp = pmsg_prolong(enzo_block);
 
@@ -499,7 +478,6 @@ void EnzoMethodMultipole::prolong_recv
   *pmsg_prolong(enzo_block) = nullptr;
 
   // Unpack coefficients from message then delete message
-  //CkPrintf("right before unpacking coeffs\n");
   unpack_coeffs_(enzo_block, msg);
     
   
@@ -624,28 +602,11 @@ void EnzoMethodMultipole::unpack_coeffs_
   std::vector<double> parent_c2  (msg->c2, msg->c2 + 9);
   std::vector<double> parent_c3  (msg->c3, msg->c3 + 27);
 
-
-  // CkPrintf("this c1: %f %f %f\n", this_c1[0], this_c1[1], this_c1[2]);
-  // CkPrintf("unpacked c1: %f %f %f\n", parent_c1[0], parent_c1[1], parent_c1[2]);
-
-  // CkPrintf("this c2: ");
-  //   for (int i = 0; i < 9; i++) {
-  //     CkPrintf("%f  ", this_c2[i]);
-  //   }
-  // CkPrintf("\n");
-
   std::vector<double> com_shift = subtract_(parent_com, this_com, 3);
 
   std::vector<double> shifted_parent_c1_secondterm = dot_12_(com_shift, parent_c2);
   std::vector<double> shifted_parent_c1_thirdterm = dot_23_(outer_(com_shift, com_shift), dot_scalar_(0.5, parent_c3, 27));
   std::vector<double> shifted_parent_c1 = add_(add_(parent_c1, shifted_parent_c1_secondterm, 3), shifted_parent_c1_thirdterm, 3);
-      
-  
-  // CkPrintf("com_shift: ");
-  //   for (int i = 0; i < 3; i++) {
-  //     CkPrintf("%f  ", com_shift[i]);
-  //   }
-  // CkPrintf("\n");
   
   std::vector<double> shifted_parent_c2_secondterm = dot_13_(com_shift, parent_c3);
   std::vector<double> shifted_parent_c2 = add_(parent_c2, shifted_parent_c2_secondterm, 9);
@@ -666,18 +627,6 @@ void EnzoMethodMultipole::unpack_coeffs_
     pc3(enzo_block)[i] = new_c3[i];
   }
 
-  // CkPrintf("new c1: ");
-  //   for (int i = 0; i < 3; i++) {
-  //     CkPrintf("%f  ", new_c1[i]);
-  //   }
-  // CkPrintf("\n");
-  
-  // CkPrintf("new c2: ");
-  //   for (int i = 0; i < 9; i++) {
-  //     CkPrintf("%f  ", new_c2[i]);
-  //   }
-  // CkPrintf("\n");
-
   delete msg;
 }
 
@@ -689,9 +638,6 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
 {
   Data * data = block->data();
   Field field = data->field();
-
-  // EnzoBlock * enzo_block = enzo::block(block);
-  // int level = enzo_block->level();
 
   const int id_dens_ = field.field_id ("density");
   enzo_float * density = (enzo_float *) field.values("density");
@@ -751,8 +697,6 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
     com[2] = weighted_sum[2] / *mass;
 
     *mass *= cell_vol;
-    // CkPrintf("Block mass: %f\n", mass_);
-    
 
     for (int iz = gz; iz < mz-gz; iz++) {
       for (int iy = gy; iy < my-gy; iy++) {
@@ -831,8 +775,6 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         accel_y[i] -= block_force[1];
         accel_z[i] -= block_force[2];
 
-        // CkPrintf("Cell: %d\n", i);
-        // CkPrintf("a: %f, %f, %f\n", a[0], a[1], a[2]);
         CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
         CkPrintf("Block force: %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
 
@@ -872,8 +814,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        CkPrintf("Cell force: %f, %f, %f\n\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
-
+        CkPrintf("Cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        CkPrintf("Accel: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
       }
     }
   }
@@ -898,7 +840,7 @@ void EnzoMethodMultipole::traverse
   const bool is_leaf_a = enzo_block->is_leaf();
 
   if (! known_leaf_b) {
-    // If unknown wether B is leaf or not, flip arguments and send to B
+    // If unknown whether B is leaf or not, flip arguments and send to B
     enzo::block_array()[index_b].p_method_multipole_traverse
       (index_a, is_leaf_a ? 1 : 0);
     return;
@@ -907,7 +849,6 @@ void EnzoMethodMultipole::traverse
   // Determine if blocks are "far", and save radii for later
   double ra,rb;
   bool mac = is_far_(enzo_block,index_b,&ra,&rb);
-  // CkPrintf("mac: %d\n", mac);
 
   // is_leaf values: 0 no, 1 yes -1 unknown
   const bool is_leaf_b = (type_b == 1);
@@ -923,9 +864,6 @@ void EnzoMethodMultipole::traverse
 
   if (index_a == index_b) {
 
-    // CkPrintf("equal indices\n");
-    // CkPrintf("level_a, level_b: %d %d\n", level_a, level_b);
-
     // loop 1 through A children
     while (it_child_a.next(ica3)) {
       int ica = ica3[0] + 2*(ica3[1] + 2*ica3[2]);
@@ -937,22 +875,16 @@ void EnzoMethodMultipole::traverse
         Index index_b_child = index_b.index_child(icb3, 0);
         // avoid calling both traverse (A,B) and traverse (B,A)
 
-        //CkPrintf("ica, icb: %d %d\n", ica, icb);
         if (ica <= icb) {  
           // call traverse on child 1 and child 2
           enzo::block_array()[index_a_child].p_method_multipole_traverse
             (index_b_child,-1);
         }
-
-        
       }
-      
     }
   }
 
   else if (is_leaf_a && is_leaf_b) {
-
-    // CkPrintf("two leaves\n");
 
     // interact
     traverse_direct_pair (enzo_block,index_a,volume_a,index_b,volume_b);
@@ -961,8 +893,6 @@ void EnzoMethodMultipole::traverse
 
   else if (mac) {
 
-    // CkPrintf("mac satisfied\n");
-
     // interact
     traverse_approx_pair (enzo_block,index_a,volume_a,index_b,volume_b);
 
@@ -970,8 +900,6 @@ void EnzoMethodMultipole::traverse
   
   
   else if (is_leaf_a) {
-
-    // CkPrintf("a is a leaf\n");
 
     while (it_child_b.next(icb3)) {
 
@@ -983,8 +911,6 @@ void EnzoMethodMultipole::traverse
   
   else if (is_leaf_b) {
 
-    // CkPrintf("b is a leaf\n");
-
     while (it_child_a.next(ica3)) {
 
       Index index_a_child = index_a.index_child(ica3, 0);
@@ -995,8 +921,6 @@ void EnzoMethodMultipole::traverse
 
   else if (ra < rb) { // open the larger block (b)
 
-    // CkPrintf("b is bigger than a\n");
-
     while (it_child_b.next(icb3)) {
       Index index_b_child = index_b.index_child(icb3, 0);
       traverse(enzo_block,index_b_child,-1);
@@ -1005,12 +929,10 @@ void EnzoMethodMultipole::traverse
   
   else {  // open the larger block (a)
 
-    // CkPrintf("a is bigger than b\n");
-
     while (it_child_a.next(ica3)) {
       Index index_a_child = index_a.index_child(ica3, 0);
       enzo::block_array()[index_a_child].p_method_multipole_traverse
-        (index_b,type_b);   // not confident about this
+        (index_b,type_b);   
     }
   }
 }
@@ -1058,8 +980,6 @@ void EnzoMethodMultipole::interact_approx_send(EnzoBlock * enzo_block, Index rec
 
 void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) throw()
 {
-
-  // CkPrintf("in interact_approx_\n");
   
   std::vector<double> com_a (pcom(block), pcom(block) + 3);
   std::vector<double> c1_a  (pc1(block), pc1(block) + 3);
@@ -1073,10 +993,6 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
 
   std::vector<double> rvec = subtract_(com_b, com_a, 3);         // displacement vector between com_b and com_a
   double r = sqrt(dot_11_(rvec, rvec));                          // magnitude of displacement vector
-
-  // CkPrintf("r: %f\n", r);
-  // CkPrintf("com_a: %f %f %f\n", com_a[0], com_a[1], com_a[2]);
-  // CkPrintf("com_b: %f %f %f\n", com_b[0], com_b[1], com_b[2]);
 
   std::vector<double> d1 = dot_scalar_(-1.0/pow(r,3), rvec, 3);  // derivative tensor d1
   std::vector<double> d2 (9, 0);                                 // derivative tensor d2
@@ -1128,8 +1044,6 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
   std::vector<double> new_c2 = add_(c2_a, delta_c2, 9);
   std::vector<double> new_c3 = add_(c3_a, delta_c3, 27);
 
-  // CkPrintf("delta_c1: %f %f %f\n", delta_c1[0], delta_c1[1], delta_c1[2]);
-
   for (int i = 0; i < 3; i++) {
     pc1(block)[i] = new_c1[i];
   }
@@ -1152,12 +1066,8 @@ void EnzoMethodMultipole::traverse_direct_pair
  Index index_b, int volume_b)
 {
 
-  // CkPrintf("traverse direct pair\n");
-
   // compute the a->b interaction
   pack_dens_(enzo_block, index_b);
-  // char * msg_a = pack_dens_(enzo_block);
-  //enzo::block_array()[index_b].p_method_multipole_interact_direct (msg_a);
 
   // compute the b->a interaction
   enzo::block_array()[index_b].p_method_multipole_interact_direct_send (index_a);
@@ -1168,22 +1078,6 @@ void EnzoMethodMultipole::traverse_direct_pair
     // (note blocks may be equal, so don't double-count)
     enzo::block_array()[index_b].p_method_multipole_update_volume (index_a,volume_a);
   }
-
-
-  // // compute the a->b interaction
-  // MultipoleMsg * msg_a = pack_multipole_(enzo_block);
-  // enzo::block_array()[index_b].p_method_multipole_interact_approx(msg_a);
-
-  // // compute the b->a interaction
-  // enzo::block_array()[index_b].p_method_multipole_interact_approx_send (index_a);
-
-  // // update volumes for each block to detect when to terminate traverse
-  
-  // update_volume (enzo_block,index_b,volume_b);
-  // // do we need to check if blocks are equal?
-  // if (index_a != index_b) {
-  //   enzo::block_array()[index_b].p_method_multipole_update_volume (index_a,volume_a);
-  // }
 
 }
 
@@ -1202,8 +1096,6 @@ void EnzoBlock::p_method_multipole_interact_direct_send (Index receiver)
 void EnzoMethodMultipole::interact_direct_send(EnzoBlock * enzo_block, Index receiver) throw()
 {
   pack_dens_(enzo_block, receiver);
-  // char * msg = pack_dens_(enzo_block);
-  // enzo::block_array()[receiver].p_method_multipole_interact_direct(msg);
 }
 
 
@@ -1221,11 +1113,9 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
 
   field.dimensions  (0, &mx, &my, &mz);
   field.ghost_depth (0, &gx, &gy, &gz);
-  //CkPrintf("mz? %d\n", mz);
 
   enzo_block->cell_width(&hx, &hy, &hz);
   hz = 1.0; // this is to make math easier -- delete later
-  //double cell_vol = hx * hy * hz;
 
   enzo_block->lower(lo, lo+1, lo+2);
 
@@ -1255,15 +1145,12 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   SAVE_ARRAY_TYPE(pc, enzo_float, dens, mx*my*mz);
 
 
-  // return buffer;
-
   enzo::block_array()[index_b].p_method_multipole_interact_direct (size, buffer);
 }
 
 
 void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
 {
-  // CkPrintf("in interact_direct\n");
 
   Data * data = block->data();
   Field field = data->field();
@@ -1289,7 +1176,6 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
 
   // unpacking data from msg_b
   int mx2, my2, mz2;
-  //int gx2, gy2, gz2;
   double hx2, hy2, hz2;
   double lo2[3];
 
@@ -1304,36 +1190,8 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
   LOAD_SCALAR_TYPE(pc, double, hz2);
   LOAD_ARRAY_TYPE(pc, double, lo2, 3);
 
-
   double dens[mx2*my2*mz2];
   LOAD_ARRAY_TYPE(pc, double, dens, mx2*my2*mz2);
-
-  //CkPrintf("After load: dens[0]=%f, dens[5]=%f\n");
-  
-  // assuming field size is identical for all blocks
-  // int size[3];
-  // field.size(size, size+1, size+2);
-
-  // int num_field_data = 1;
-  // Data data_other = Data
-  //   (size[0],size[1],size[2],
-  //    num_field_data,
-  //    msg_b->lo[0], msg_b->lo[1], msg_b->lo[2],
-  //    msg_b->up[0], msg_b->up[1], msg_b->up[2],
-  //    cello::field_descr(),
-  //    cello::particle_descr());
-
-  // data_other.allocate();
-
-  // msg_b->update(&data_other);
-
-  // Field field_other = data_other.field();
-  // enzo_float * dens = (enzo_float*) field_other.values ("density");
-
-
-  // Field field_other;
-  // field_face -> array_to_face(a, field)
-
 
 
   // loop over all cells in this Block
@@ -1344,11 +1202,6 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
         int i = ix + mx*(iy + my*iz);
 
         CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
-        std::vector<double> tot_cell_force (3, 0); // for debugging purposes
-
-        // CkPrintf("gx=%f, gy=%f, gz=%f\n", gx, gy, gz);
-        // CkPrintf("mx2=%d, my2=%d, mz2=%d\n", mx2, my2, mz2);
-        // CkPrintf("lo2[0]=%f, lo2[1]=%f, lo2[2]=%f\n", lo2, lo2+1, lo2+2);
 
         // compute force sourced from cells in Block b
         for (int iz2 = gz; iz2 < mz2-gz; iz2++) {
@@ -1357,39 +1210,27 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
 
               int i2 = ix2 + mx2*(iy2 + my2*iz2);
 
-              //CkPrintf("i2 = %d\n", i2);
-
-              //CkPrintf("position A: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
-              
               // disp points from cell in current Block to cell in Block b
               std::vector<double> disp (3, 0);
               disp[0] = lo2[0] - lo[0] + (ix2 - ix)*hx; 
               disp[1] = lo2[1] - lo[1] + (iy2 - iy)*hy;
               disp[2] = lo2[2] - lo[2] + (iz2 - iz)*hz;
-
-              //CkPrintf("disp[2]=%f\n", disp[2]);
                 
               std::vector<double> cell_force = newton_force_(dens[i2]*cell_vol, disp); 
-              //CkPrintf("dens: %f\n", dens[i2]);
 
               accel_x[i] += cell_force[0];
               accel_y[i] += cell_force[1];
               accel_z[i] += cell_force[2];
 
-              tot_cell_force[0] += cell_force[0];
-              tot_cell_force[1] += cell_force[1];
-              tot_cell_force[2] += cell_force[2];
-
             }
           }
         }
 
-        CkPrintf("Leaf-leaf cell force: %f, %f, %f\n\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        // CkPrintf("Leaf-leaf cell force: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
       }
     }
   }
 }
-
 
 
 void EnzoBlock::p_method_multipole_update_volume (Index index, int volume)
@@ -1404,19 +1245,12 @@ void EnzoMethodMultipole::update_volume
 {
 
   std::string string = enzo_block->name();
-  // CkPrintf("block name in update volume = %s\n", string.c_str());
-  // CkPrintf("volume of block: %d\n", *volume_(enzo_block));
-  // CkPrintf("previous volume: %d\n", volume);
-  // CkPrintf("max volume: %d\n", max_volume_);
 
   if (enzo_block->is_leaf()) {
 
     *volume_(enzo_block) += volume;
 
     if (*volume_(enzo_block) == max_volume_) {
-
-      //std::string string = enzo_block->name();
-      // CkPrintf("leaf at barrier: %s\n", string.c_str());
 
       CkCallback callback(CkIndex_EnzoBlock::r_method_multipole_traverse_complete(nullptr),
 			        enzo::block_array());
@@ -1433,7 +1267,6 @@ void EnzoMethodMultipole::update_volume
     int ic3[3];
 
     while (it_child.next(ic3)) {
-      // CkPrintf("update volume child loop");
 
       Index index_child = enzo_block->index().index_child(ic3,min_level);
       enzo::block_array()[index_child].p_method_multipole_update_volume (index,volume);
@@ -1470,7 +1303,6 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
   *rb = 0.5*sqrt(*rb);
 
   return  (d * theta_ > (*ra + *rb));
-  //return (d * theta_ > (ra3[0] + rb3[0]));
 }
 
 /************************************************************************/

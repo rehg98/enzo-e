@@ -38,7 +38,7 @@
 
  Mesh {
      root_rank = 2;
-     root_size   = [ 2, 2 ];  # total number of cells in root grid
+     root_size   = [ 2, 4 ];  # total number of cells in root grid
      root_blocks = [  1,  1 ];  # number of blocks in root grid
                                 # (so block size = (64/4,32/2) = (16,16)
  }
@@ -47,7 +47,7 @@
      list = [ "density" ];
      # list = [ "slope" ];
      
-     max_level = 3;
+     max_level = 2;
 
      density {
          field_list = [ "density" ];
@@ -78,7 +78,7 @@
 
      multipole {
          timeStep = 10000.0;
-	 theta = 1.0;
+	 theta = 0.1;
      }
  }
 

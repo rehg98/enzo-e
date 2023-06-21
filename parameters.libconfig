@@ -6,7 +6,7 @@
          type = "density";
      };
      list = ( "density" );
-     max_level = 3;
+     max_level = 2;
  }
 
  Boundary : {
@@ -36,13 +36,13 @@
  Mesh : {
      root_blocks = ( 1, 1 );
      root_rank = 2;
-     root_size = ( 2, 2 );
+     root_size = ( 2, 4 );
  }
 
  Method : {
      list = ( "multipole" );
      multipole : {
-         theta = 1.000000000000000;
+         theta = 0.1000000000000000;
          timeStep = 10000.00000000000;
      };
  }
