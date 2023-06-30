@@ -17,7 +17,7 @@
     list = ["value"];
 
     value {
-        density = [ 1.00 ];
+        density = [ 1.0 ];
 	# density = [10.0, y >= 0.0, 0.1];
     }
     
@@ -38,7 +38,7 @@
 
  Mesh {
      root_rank = 2;
-     root_size   = [ 2, 4 ];  # total number of cells in root grid
+     root_size   = [ 2, 2 ];  # total number of cells in root grid
      root_blocks = [  1,  1 ];  # number of blocks in root grid
                                 # (so block size = (64/4,32/2) = (16,16)
  }
@@ -62,9 +62,28 @@
      alignment = 8;
      gamma = 1.4000;
      ghost_depth = 1;
-     list = [ "density" ];
+     list = [ "density", "acceleration_x", "acceleration_y",
+              "acceleration_z"];
      padding = 0;
  }
+
+Particle {
+    list = ["star"];
+
+    star {
+        attributes = [ "x", "double",
+                       "y", "double",
+                       "z", "double",
+                       "ax", "double",
+                       "ay", "double",
+                       "az", "double",
+                       "mass", "double"];
+                       
+        position = [ "x", "y", "z" ];
+        
+        group_list = ["is_gravitating"];
+    }
+  }
 
 #======================================================================
 # COMPUTATION
@@ -78,7 +97,7 @@
 
      multipole {
          timeStep = 10000.0;
-	 theta = 0.1;
+	 theta = 0.8;
      }
  }
 

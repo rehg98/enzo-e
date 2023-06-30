@@ -22,7 +22,7 @@
      alignment = 8;
      gamma = 1.400000000000000;
      ghost_depth = 1;
-     list = [ "density" ];
+     list = [ "density", "acceleration_x", "acceleration_y", "acceleration_z" ];
      padding = 0;
  }
 
@@ -42,13 +42,22 @@
  Method {
      list = [ "multipole" ];
      multipole {
-         theta = 0.1000000000000000;
+         theta = 0.8000000000000000;
          timeStep = 10000.00000000000;
      };
  }
 
  Output {
      list = [  ];
+ }
+
+ Particle {
+     list = [ "star" ];
+     star {
+         attributes = [ "x", "double", "y", "double", "z", "double", "ax", "double", "ay", "double", "az", "double", "mass", "double" ];
+         group_list = [ "is_gravitating" ];
+         position = [ "x", "y", "z" ];
+     };
  }
 
  Stopping {

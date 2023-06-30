@@ -197,7 +197,7 @@ protected: // methods
 public:
 
   void interact_approx_ (Block * block, MultipoleMsg * msg_b) throw(); // compute Taylor coeffs for two interacting blocks
-  void interact_direct_ (Block * block, char * msg_b) throw(); // compute Taylor coeffs for two interacting blocks
+  void interact_direct_ (Block * block, char * fldbuffer_b, char * prtbuffer_b) throw(); // compute Newtonian force directly for two interacting leaves
 
   void interact_approx_send(EnzoBlock * enzo_block, Index receiver) throw();
   void interact_direct_send(EnzoBlock * enzo_block, Index receiver) throw();
@@ -230,19 +230,25 @@ protected:
     return block->data()->scalar_long_long().value(is_volume_);
   }
 
+  /**********    functions for debugging particles          ************/
+  void InitializeParticles (Block * block, int nprtls, double prtls[][7]);
+
 
   /**********   convenience functions for tensor arithmetic ***********/
 
-  // consider changing std::vector to std::array; may need to include <array> header
+  // to what extent should i consider replacing std::vectors with std::array? Don't know size for some methods
 
-  std::vector<double> shift_quadrupole_(double * old_quadrupole, double tot_mass, double * old_com, double * new_com) throw()
+  std::array<double, 9> shift_quadrupole_(double * old_quadrupole, double tot_mass, double * old_com, double * new_com) throw()
   {
-    std::vector<double> new_com_vec (new_com, new_com + 3);
-    std::vector<double> old_com_vec (old_com, old_com + 3);
+    // std::vector<double> new_com_vec (new_com, new_com + 3);
+    // std::vector<double> old_com_vec (old_com, old_com + 3);
 
-    std::vector<double> disp = subtract_(new_com_vec, old_com_vec, 3);
+    std::array<double, 3> disp;
+    disp[0] = new_com[0] - old_com[0];
+    disp[1] = new_com[1] - old_com[1];
+    disp[2] = new_com[2] - old_com[2];
     
-    std::vector<double> new_quadrupole (9, 0);
+    std::array<double, 9> new_quadrupole{};
     for (int j = 0; j < 3; j++) {
       for (int i = 0; i < 3; i++) {
         new_quadrupole[3*i + j] = old_quadrupole[3*i + j] + tot_mass * disp[i] * disp[j];
@@ -254,6 +260,7 @@ protected:
   }
 
   // subtract two arrays
+  // any way to do this with arrays? size is not known at compile time
   std::vector<double> subtract_(std::vector<double> a, std::vector<double> b, int size) throw()
   {
     // should assert that a and b have size "size"

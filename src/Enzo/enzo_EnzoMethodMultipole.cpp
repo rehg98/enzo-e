@@ -9,6 +9,8 @@
 
 #include "enzo.hpp"
 
+#include <fstream> // necessary?
+
 //----------------------------------------------------------------------
 
 EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta)
@@ -113,6 +115,7 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
   
   *mass = 0;
 
+  // is there a cleaner way of zeroing out everything?
   for (int i = 0; i < 3; i++){
     com[i]  = 0;   
   }
@@ -169,6 +172,17 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
 
   *volume_(block) = 0;
 
+
+  if (block->is_leaf()) {
+
+    CkPrintf("a leaf in compute\n");
+
+    int nprtls = 2;
+    // mass, x, y, z, ax, ay, az
+    double prtls[nprtls][7] = {{1.0, 0.25, 0.25, 0.5, 0, 0, 0},
+                               {1.0, -0.3, -0.42, 0.5, 0, 0, 0}};
+    InitializeParticles(block, nprtls, prtls);
+  }
   
   compute_ (block);
 }
@@ -570,8 +584,8 @@ void EnzoMethodMultipole::unpack_multipole_
       new_com[i] = (*this_mass * this_com[i] + child_mass * child_com[i]) / (*this_mass + child_mass);
     }
     
-    std::vector<double> shifted_this_quadrupole = shift_quadrupole_(this_quadrupole, *this_mass, this_com, new_com);
-    std::vector<double> shifted_child_quadrupole = shift_quadrupole_(child_quadrupole, child_mass, child_com, new_com);
+    std::array<double, 9> shifted_this_quadrupole = shift_quadrupole_(this_quadrupole, *this_mass, this_com, new_com);
+    std::array<double, 9> shifted_child_quadrupole = shift_quadrupole_(child_quadrupole, child_mass, child_com, new_com);
     for (int i = 0; i < 9; i++) {
         this_quadrupole[i] = shifted_this_quadrupole[i] + shifted_child_quadrupole[i];
     }
@@ -580,11 +594,11 @@ void EnzoMethodMultipole::unpack_multipole_
       this_com[i] = new_com[i];
 
     *this_mass += child_mass;
+
+    // delete new_com ?
   }
 
   delete msg;
-
-  // delete new_com ?
 }
 
 void EnzoMethodMultipole::unpack_coeffs_
@@ -657,14 +671,27 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
   double lo[3];
   block->lower(lo, lo+1, lo+2);
 
+
+  Particle particle = block->data()->particle();
+  ParticleDescr * particle_descr = cello::particle_descr();
+  Grouping * particle_groups = particle_descr->groups();
+  const int num_is_grav = particle_groups->size("is_gravitating");
+
+  // distinguish between mass as attribute vs. mass as constant??
+  enzo_float * prtmass = NULL;
+  int dm;
+
+
+
   double weighted_sum[3] = {};
 
   double * mass = pmass(block);
   double * com = pcom(block);
   double * quadrupole = pquadrupole(block);
 
-  double cell_mass = 0;
 
+  // can compute quadrupole in the same loop as the mass and com -- just need running sum over positions squared
+  // ()
   // should I have an if-statement with "rank" here to separate out 1D, 2D, and 3D?
 
   for (int iz = gz; iz < mz-gz; iz++) {
@@ -672,39 +699,102 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
       for (int ix = gx; ix < mx-gx; ix++) {
         
         double dens = density[ix + mx * (iy + iz * my)];
-        // CkPrintf("dens: %f\n", dens);
 
-        cell_mass += dens;
+        *mass += dens * cell_vol;
 
-        // CkPrintf("x coord: %f\n", (lo[0] + (ix-gx + 0.5)*hx));
-        // CkPrintf("y coord: %f\n", (lo[1] + (iy-gy + 0.5)*hy));
-
-	      weighted_sum[0] += dens * (lo[0] + (ix-gx + 0.5)*hx); 
-	      weighted_sum[1] += dens * (lo[1] + (iy-gy + 0.5)*hy); 
-	      weighted_sum[2] += dens * (lo[2] + (iz-gz + 0.5)*hz);
+	      weighted_sum[0] += dens * cell_vol * (lo[0] + (ix-gx + 0.5)*hx); 
+	      weighted_sum[1] += dens * cell_vol * (lo[1] + (iy-gy + 0.5)*hy); 
+	      weighted_sum[2] += dens * cell_vol * (lo[2] + (iz-gz + 0.5)*hz);
 
       }
     }
   }
 
+  // loop over particles, adding masses to *mass and adding mass*position to weighted_sum
+  for (int ipt = 0; ipt < num_is_grav; ipt++) {
+    const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
+
+    int imass = 0;
+
+    // check correct precision for position
+    int ia = particle.attribute_index(it,"x");
+    int ba = particle.attribute_bytes(it,ia); // "bytes (actual)"
+    int be = sizeof(enzo_float);                // "bytes (expected)"
+
+      ASSERT4 ("EnzoMethodPmUpdate::compute()",
+	       "Particle type %s attribute %s defined as %s but expecting %s",
+	       particle.type_name(it).c_str(),
+	       particle.attribute_name(it,ia).c_str(),
+	       ((ba == 4) ? "single" : ((ba == 8) ? "double" : "quadruple")),
+	       ((be == 4) ? "single" : ((be == 8) ? "double" : "quadruple")),
+	       (ba == be));
+
+    for (int ib = 0; ib < particle.num_batches(it); ib++) {
+
+      const int np = particle.num_particles(it,ib);
+
+      if (particle.has_attribute(it,"mass")) {
+
+        // Particle type has an attribute called "mass".
+        // In this case we set prtmass to point to the mass attribute array
+        // Also set dm to be the stride for the "mass" attribute
+        imass = particle.attribute_index(it,"mass");
+        prtmass = (enzo_float *) particle.attribute_array( it, imass, ib);
+        dm = particle.stride(it,imass);
+
+	    } 
+      else {
+
+        // Particle type has a constant called "mass".
+        // In this case we set prtmass to point to the value
+        // of the mass constant.
+        // dm is set to 0, which will mean that we can loop through an
+        // "array" of length 1.
+        imass = particle.constant_index(it,"mass");
+        prtmass = (enzo_float*)particle.constant_value(it,imass);
+        dm = 0;
+      }
+
+      const int ia_x  = particle.attribute_index(it,"x");
+      const int ia_y  = particle.attribute_index(it,"y");
+      const int ia_z  = particle.attribute_index(it,"z");
+
+      enzo_float * xa =  (enzo_float *)particle.attribute_array (it,ia_x,ib);
+      enzo_float * ya =  (enzo_float *)particle.attribute_array (it,ia_y,ib);
+      enzo_float * za =  (enzo_float *)particle.attribute_array (it,ia_z,ib);
+
+      const int dx =  particle.stride(it,ia_x);
+      const int dy =  particle.stride(it,ia_y);
+      const int dz =  particle.stride(it,ia_z);
+
+      for (int ip=0; ip < np; ip++) {
+        
+        *mass += prtmass[ip*dm];
+
+        // how are particle x, y, z defined? where is origin?
+        weighted_sum[0] += prtmass[ip*dm] * xa[ip*dx]; 
+	      weighted_sum[1] += prtmass[ip*dm] * ya[ip*dy]; 
+	      weighted_sum[2] += prtmass[ip*dm] * za[ip*dz];
+
+      }
+    }
+  }
   
-  if (cell_mass != 0) {
-    
-    *mass += cell_mass; 
+
+  if (*mass != 0) { 
 
     com[0] = weighted_sum[0] / *mass;
     com[1] = weighted_sum[1] / *mass;
     com[2] = weighted_sum[2] / *mass;
 
-    *mass *= cell_vol;
-
+    // can compute quadrupole in one loop?
     for (int iz = gz; iz < mz-gz; iz++) {
       for (int iy = gy; iy < my-gy; iy++) {
         for (int ix = gx; ix < mx-gx; ix++) {
           
           double dens = density[ix + mx * (iy + iz * my)];
 
-          double disp[3];
+          double disp[3]; // do I need to delete disp later?
           disp[0] = (lo[0] + (ix-gx + 0.5)*hx) - com[0]; 
           disp[1] = (lo[1] + (iy-gy + 0.5)*hy) - com[1];
           disp[2] = (lo[2] + (iz-gz + 0.5)*hz) - com[2]; 
@@ -714,10 +804,59 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
               quadrupole[3*i + j] += dens * cell_vol * disp[i] * disp[j];
             }
           }
-
         }
       }
     }
+
+
+    for (int ipt = 0; ipt < num_is_grav; ipt++) {
+      const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
+
+      int imass = 0;
+
+      for (int ib = 0; ib < particle.num_batches(it); ib++) {
+
+        const int np = particle.num_particles(it,ib);
+
+        if (particle.has_attribute(it,"mass")) {
+          imass = particle.attribute_index(it,"mass");
+          prtmass = (enzo_float *) particle.attribute_array( it, imass, ib);
+          dm = particle.stride(it,imass);
+        } 
+        else {
+          imass = particle.constant_index(it,"mass");
+          prtmass = (enzo_float*)particle.constant_value(it,imass);
+          dm = 0;
+        }
+
+        const int ia_x  = particle.attribute_index(it,"x");
+        const int ia_y  = particle.attribute_index(it,"y");
+        const int ia_z  = particle.attribute_index(it,"z");
+
+        enzo_float * xa =  (enzo_float *)particle.attribute_array (it,ia_x,ib);
+        enzo_float * ya =  (enzo_float *)particle.attribute_array (it,ia_y,ib);
+        enzo_float * za =  (enzo_float *)particle.attribute_array (it,ia_z,ib);
+
+        const int dx =  particle.stride(it,ia_x);
+        const int dy =  particle.stride(it,ia_y);
+        const int dz =  particle.stride(it,ia_z);
+
+        for (int ip=0; ip < np; ip++) {
+
+          double disp[3]; // do I need to delete disp later?
+          disp[0] = xa[ip*dx] - com[0]; 
+          disp[1] = ya[ip*dy] - com[1];
+          disp[2] = za[ip*dz] - com[2]; 
+
+          for (int j = 0; j < 3; j++) {
+            for (int i = 0; i < 3; i++) {
+              quadrupole[3*i + j] += prtmass[ip*dm] * disp[i] * disp[j];
+            }
+          }
+        }
+      }
+    }
+    
   }
 }
 
@@ -745,6 +884,16 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
 
   double lo[3];
   block->lower(lo, lo+1, lo+2);
+
+  Particle particle = block->data()->particle();
+  ParticleDescr * particle_descr = cello::particle_descr();
+  Grouping * particle_groups = particle_descr->groups();
+  const int num_is_grav = particle_groups->size("is_gravitating");
+  const int num_prtl_groups = particle_descr->num_types();
+
+  // distinguish between mass as attribute vs. mass as constant??
+  enzo_float * prtmass2 = NULL;
+  int dm2;
 
   std::vector<double> com (pcom(block), pcom(block) + 3);
   std::vector<double> c1 (pc1(block), pc1(block) + 3);
@@ -790,6 +939,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
               if (i != i2) {
 
                 // displacement vector pointing from current cell to interacting cell
+                // consider replacing with array? (will this work with newton_force?)
                 std::vector<double> disp (3, 0);
                 disp[0] = (ix2 - ix) * hx;
                 disp[1] = (iy2 - iy) * hy;
@@ -813,12 +963,225 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
             }
           }
         }
-
         CkPrintf("Cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+
+        std::vector<double> tot_prt_force (3, 0); // for debugging purposes
+
+        // compute cell force sourced from particles
+        for (int ipt = 0; ipt < num_is_grav; ipt++) {
+          const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
+
+          int imass2 = 0;
+
+          for (int ib = 0; ib < particle.num_batches(it); ib++) {
+
+            const int np = particle.num_particles(it,ib);
+
+            if (particle.has_attribute(it,"mass")) {
+              imass2 = particle.attribute_index(it,"mass");
+              prtmass2 = (enzo_float *) particle.attribute_array( it, imass2, ib);
+              dm2 = particle.stride(it,imass2);
+            } 
+            else {
+              imass2 = particle.constant_index(it,"mass");
+              prtmass2 = (enzo_float*)particle.constant_value(it,imass2);
+              dm2 = 0;
+            }
+
+            const int ia_x2  = particle.attribute_index(it,"x");
+            const int ia_y2  = particle.attribute_index(it,"y");
+            const int ia_z2  = particle.attribute_index(it,"z");
+
+            enzo_float * xa2 =  (enzo_float *)particle.attribute_array (it,ia_x2,ib);
+            enzo_float * ya2 =  (enzo_float *)particle.attribute_array (it,ia_y2,ib);
+            enzo_float * za2 =  (enzo_float *)particle.attribute_array (it,ia_z2,ib);
+
+            const int dx2 =  particle.stride(it,ia_x2);
+            const int dy2 =  particle.stride(it,ia_y2);
+            const int dz2 =  particle.stride(it,ia_z2);
+
+            for (int ip=0; ip < np; ip++) {
+              
+              // disp points from current cell to particle
+              std::vector<double> disp (3, 0);
+              disp[0] = xa2[ip*dx2] - (lo[0] + (ix-gx + 0.5)*hx); 
+              disp[1] = ya2[ip*dy2] - (lo[1] + (iy-gy + 0.5)*hy);
+              disp[2] = za2[ip*dz2] - (lo[2] + (iz-gz + 0.5)*hz);
+                
+              std::vector<double> prtcell_force = newton_force_(prtmass2[ip*dm2], disp); 
+
+              accel_x[i] += prtcell_force[0];
+              accel_y[i] += prtcell_force[1];
+              accel_z[i] += prtcell_force[2];
+
+              tot_prt_force[0] += prtcell_force[0];
+              tot_prt_force[1] += prtcell_force[1];
+              tot_prt_force[2] += prtcell_force[2];
+            }
+          }
+        }
+
+        CkPrintf("Particle force: %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
         CkPrintf("Accel: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
       }
     }
   }
+
+
+
+  // loop over all particles
+  // change this to loop over all particles, not just the ones that are gravitating
+
+  // for (int it = 0; it < num_prtl_types; it++)
+  //  replace ipt with it? are particle types indexed contiguously?
+  for (int ipt = 0; ipt < num_is_grav; ipt++) {
+    const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
+
+    for (int ib = 0; ib < particle.num_batches(it); ib++) {
+
+      const int np = particle.num_particles(it,ib);
+
+      const int ia_x  = particle.attribute_index(it,"x");
+      const int ia_y  = particle.attribute_index(it,"y");
+      const int ia_z  = particle.attribute_index(it,"z");
+      const int ia_ax  = particle.attribute_index(it,"ax");
+      const int ia_ay  = particle.attribute_index(it,"ay");
+      const int ia_az  = particle.attribute_index(it,"az");
+
+      enzo_float * xa =  (enzo_float *)particle.attribute_array (it,ia_x,ib);
+      enzo_float * ya =  (enzo_float *)particle.attribute_array (it,ia_y,ib);
+      enzo_float * za =  (enzo_float *)particle.attribute_array (it,ia_z,ib);
+      enzo_float * axa =  (enzo_float *)particle.attribute_array (it,ia_ax,ib);
+      enzo_float * aya =  (enzo_float *)particle.attribute_array (it,ia_ay,ib);
+      enzo_float * aza =  (enzo_float *)particle.attribute_array (it,ia_az,ib);
+
+      const int dx =  particle.stride(it,ia_x);
+      const int dy =  particle.stride(it,ia_y);
+      const int dz =  particle.stride(it,ia_z);
+      const int dax =  particle.stride(it,ia_ax);
+      const int day =  particle.stride(it,ia_ay);
+      const int daz =  particle.stride(it,ia_az);
+
+      for (int ip=0; ip < np; ip++) {
+
+        // compute force sourced by other blocks
+        std::vector<double> a (3, 0);
+        a[0] =  xa[ip*dx] - com[0]; 
+        a[1] =  ya[ip*dy] - com[1];
+        a[2] =  za[ip*dz] - com[2];
+        
+        std::vector<double> second_term = dot_12_(a, c2);
+        std::vector<double> third_term = dot_23_(outer_(a, a), dot_scalar_(0.5, c3, 27));
+
+        // how does the code treat G?
+        std::vector<double> block_force = add_(subtract_(c1, second_term, 3), third_term, 3);
+
+        // subtracting rather than adding since block_force is multiplied by -G
+        axa[ip*dax] -= block_force[0];
+        aya[ip*day] -= block_force[1];
+        aza[ip*daz] -= block_force[2];
+
+        CkPrintf("position (prt): %f, %f, %f\n", xa[ip*dx], ya[ip*dy], za[ip*dz]);
+        CkPrintf("Block force (prt): %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
+
+        std::vector<double> tot_cell_force (3, 0); // for debugging purposes
+        
+        // compute force sourced by cells
+        for (int iz2 = gz; iz2 < mz-gz; iz2++) {
+          for (int iy2 = gy; iy2 < my-gy; iy2++) {
+            for (int ix2 = gx; ix2 < mx-gx; ix2++) {
+
+              int i2 = ix2 + mx*(iy2 + my*iz2);
+
+              // disp points from current particle to interacting cell
+              std::vector<double> disp (3, 0);
+              disp[0] = (lo[0] + (ix2-gx + 0.5)*hx) - xa[ip*dx]; 
+              disp[1] = (lo[1] + (iy2-gy + 0.5)*hy) - ya[ip*dy];
+              disp[2] = (lo[2] + (iz2-gz + 0.5)*hz) - za[ip*dz];
+                
+              std::vector<double> cellprt_force = newton_force_(dens[i2]*cell_vol, disp); 
+
+              axa[ip*dax] += cellprt_force[0];
+              aya[ip*day] += cellprt_force[1];
+              aza[ip*daz] += cellprt_force[2];
+
+              tot_cell_force[0] += cellprt_force[0];
+              tot_cell_force[1] += cellprt_force[1];
+              tot_cell_force[2] += cellprt_force[2];
+
+            }
+          }
+        }
+
+        CkPrintf("Cell force (prt): %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+
+        std::vector<double> tot_prt_force (3, 0); // for debugging purposes
+
+        // compute force sourced by other particles
+        for (int ipt2 = 0; ipt2 < num_is_grav; ipt2++) {
+          const int it2 = particle.type_index(particle_groups->item("is_gravitating",ipt2));
+
+          int imass2 = 0;
+
+          for (int ib2 = 0; ib2 < particle.num_batches(it2); ib2++) {
+
+            const int np2 = particle.num_particles(it2,ib2);
+
+            if (particle.has_attribute(it2,"mass")) {
+              imass2 = particle.attribute_index(it2,"mass");
+              prtmass2 = (enzo_float *) particle.attribute_array( it2, imass2, ib2);
+              dm2 = particle.stride(it2,imass2);
+            } 
+            else {
+              imass2 = particle.constant_index(it2,"mass");
+              prtmass2 = (enzo_float*)particle.constant_value(it2,imass2);
+              dm2 = 0;
+            }
+
+            const int ia_x2  = particle.attribute_index(it2,"x");
+            const int ia_y2  = particle.attribute_index(it2,"y");
+            const int ia_z2  = particle.attribute_index(it2,"z");
+
+            enzo_float * xa2 =  (enzo_float *)particle.attribute_array (it2,ia_x2,ib2);
+            enzo_float * ya2 =  (enzo_float *)particle.attribute_array (it2,ia_y2,ib2);
+            enzo_float * za2 =  (enzo_float *)particle.attribute_array (it2,ia_z2,ib2);
+
+            const int dx2 =  particle.stride(it2,ia_x2);
+            const int dy2 =  particle.stride(it2,ia_y2);
+            const int dz2 =  particle.stride(it2,ia_z2);
+
+            for (int ip2=0; ip2 < np2; ip2++) {
+
+              if (!(it == it2 && ib == ib2 && ip == ip2)) {
+              
+                // disp points from current particle to interacting particle
+                std::vector<double> disp (3, 0);
+                disp[0] = xa2[ip2*dx2] - xa[ip*dx]; 
+                disp[1] = ya2[ip2*dy2] - ya[ip*dy];
+                disp[2] = za2[ip2*dz2] - za[ip*dz];
+                  
+                std::vector<double> prtprt_force = newton_force_(prtmass2[ip2*dm2], disp); 
+
+                axa[ip*dax] += prtprt_force[0];
+                aya[ip*day] += prtprt_force[1];
+                aza[ip*daz] += prtprt_force[2];
+
+                tot_prt_force[0] += prtprt_force[0];
+                tot_prt_force[1] += prtprt_force[1];
+                tot_prt_force[2] += prtprt_force[2];
+              }
+
+            }
+          }
+        }
+
+        CkPrintf("Particle force (prt): %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
+        CkPrintf("Accel (prt): %f, %f, %f\n\n", axa[ip*dax], aya[ip*day], aza[ip*daz]);
+
+      }
+    }
+  }
+
 } 
 
 /************************************************************************/
@@ -1081,10 +1444,10 @@ void EnzoMethodMultipole::traverse_direct_pair
 
 }
 
-void EnzoBlock::p_method_multipole_interact_direct (int n, char * msg)
+void EnzoBlock::p_method_multipole_interact_direct (int fldsize, int prtsize, char * fldbuffer, char * prtbuffer)
 {
   EnzoMethodMultipole * method = static_cast<EnzoMethodMultipole*> (this->method());
-  method->interact_direct_ (this, msg);
+  method->interact_direct_ (this, fldbuffer, prtbuffer);
 }
 
 void EnzoBlock::p_method_multipole_interact_direct_send (Index receiver)
@@ -1093,6 +1456,7 @@ void EnzoBlock::p_method_multipole_interact_direct_send (Index receiver)
   method->interact_direct_send (this, receiver);
 }
 
+// I don't think this is necessary? Can just call pack_dens_ in p_method_multipole_interact_direct_send
 void EnzoMethodMultipole::interact_direct_send(EnzoBlock * enzo_block, Index receiver) throw()
 {
   pack_dens_(enzo_block, receiver);
@@ -1103,6 +1467,7 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
 {
   Data * data = enzo_block->data();
   Field field = data->field();
+  Particle particle = data->particle();
 
   enzo_float * dens = (enzo_float*) field.values ("density");
 
@@ -1119,21 +1484,21 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
 
   enzo_block->lower(lo, lo+1, lo+2);
 
-  int size = 0;
+  int fldsize = 0;
 
-  SIZE_SCALAR_TYPE(size, int, mx);
-  SIZE_SCALAR_TYPE(size, int, my);
-  SIZE_SCALAR_TYPE(size, int, mz);
-  SIZE_SCALAR_TYPE(size, double, hx);
-  SIZE_SCALAR_TYPE(size, double, hy);
-  SIZE_SCALAR_TYPE(size, double, hz);
-  SIZE_ARRAY_TYPE(size, double, lo, 3);
-  SIZE_ARRAY_TYPE(size, enzo_float, dens, mx*my*mz);
+  SIZE_SCALAR_TYPE(fldsize, int, mx);
+  SIZE_SCALAR_TYPE(fldsize, int, my);
+  SIZE_SCALAR_TYPE(fldsize, int, mz);
+  SIZE_SCALAR_TYPE(fldsize, double, hx);
+  SIZE_SCALAR_TYPE(fldsize, double, hy);
+  SIZE_SCALAR_TYPE(fldsize, double, hz);
+  SIZE_ARRAY_TYPE(fldsize, double, lo, 3);
+  SIZE_ARRAY_TYPE(fldsize, enzo_float, dens, mx*my*mz);
 
-  char * buffer = new char[size];
+  char * fldbuffer = new char[fldsize];
 
   char * pc; 
-  pc = buffer;
+  pc = fldbuffer;
 
   SAVE_SCALAR_TYPE(pc, int, mx);
   SAVE_SCALAR_TYPE(pc, int, my);
@@ -1145,11 +1510,15 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   SAVE_ARRAY_TYPE(pc, enzo_float, dens, mx*my*mz);
 
 
-  enzo::block_array()[index_b].p_method_multipole_interact_direct (size, buffer);
+  int prtsize = particle.data_size();
+  char * prtbuffer = new char[prtsize];
+  char * prtbuffer_next = particle.save_data(prtbuffer);
+
+  enzo::block_array()[index_b].p_method_multipole_interact_direct (fldsize, prtsize, fldbuffer, prtbuffer);
 }
 
 
-void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
+void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, char * prtbuffer_b) throw()
 {
 
   Data * data = block->data();
@@ -1174,13 +1543,13 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
   double lo[3];
   block->lower(lo, lo+1, lo+2);
 
-  // unpacking data from msg_b
+  // unpacking data from fldbuffer_b
   int mx2, my2, mz2;
   double hx2, hy2, hz2;
   double lo2[3];
 
   char * pc;
-  pc = msg_b;
+  pc = fldbuffer_b;
 
   LOAD_SCALAR_TYPE(pc, int, mx2);
   LOAD_SCALAR_TYPE(pc, int, my2);
@@ -1194,6 +1563,20 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
   LOAD_ARRAY_TYPE(pc, double, dens, mx2*my2*mz2);
 
 
+  Particle particle = data->particle();
+  ParticleDescr * particle_descr = cello::particle_descr();
+  Grouping * particle_groups = particle_descr->groups();
+  const int num_is_grav = particle_groups->size("is_gravitating");
+
+  enzo_float * prtmass2 = NULL;
+  int dm2;
+
+  // unpacking particles from prtbuffer_b
+  ParticleData new_p_data;
+  Particle particle2 (particle_descr, &new_p_data);
+  char * prtbuffer_next = particle2.load_data(prtbuffer_b);
+
+
   // loop over all cells in this Block
   for (int iz = gz; iz < mz-gz; iz++) {
     for (int iy = gy; iy < my-gy; iy++) {
@@ -1201,7 +1584,7 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
 
         int i = ix + mx*(iy + my*iz);
 
-        CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
+        // CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
 
         // compute force sourced from cells in Block b
         for (int iz2 = gz; iz2 < mz2-gz; iz2++) {
@@ -1225,11 +1608,174 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * msg_b) throw()
             }
           }
         }
-
         // CkPrintf("Leaf-leaf cell force: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
+
+        // compute cell force sourced from particles in Block b
+        for (int ipt = 0; ipt < num_is_grav; ipt++) {
+          const int it = particle2.type_index(particle_groups->item("is_gravitating",ipt));
+
+          int imass2 = 0;
+
+          for (int ib = 0; ib < particle2.num_batches(it); ib++) {
+
+            const int np = particle2.num_particles(it,ib);
+
+            if (particle2.has_attribute(it,"mass")) {
+              imass2 = particle2.attribute_index(it,"mass");
+              prtmass2 = (enzo_float *) particle2.attribute_array( it, imass2, ib);
+              dm2 = particle2.stride(it,imass2);
+            } 
+            else {
+              imass2 = particle2.constant_index(it,"mass");
+              prtmass2 = (enzo_float*)particle2.constant_value(it,imass2);
+              dm2 = 0;
+            }
+
+            const int ia_x2  = particle2.attribute_index(it,"x");
+            const int ia_y2  = particle2.attribute_index(it,"y");
+            const int ia_z2  = particle2.attribute_index(it,"z");
+
+            enzo_float * xa2 =  (enzo_float *)particle2.attribute_array (it,ia_x2,ib);
+            enzo_float * ya2 =  (enzo_float *)particle2.attribute_array (it,ia_y2,ib);
+            enzo_float * za2 =  (enzo_float *)particle2.attribute_array (it,ia_z2,ib);
+
+            const int dx2 =  particle2.stride(it,ia_x2);
+            const int dy2 =  particle2.stride(it,ia_y2);
+            const int dz2 =  particle2.stride(it,ia_z2);
+
+            for (int ip=0; ip < np; ip++) {
+              
+              // disp points from cell in current Block to particle in Block b
+              std::vector<double> disp (3, 0);
+              disp[0] = xa2[ip*dx2] - (lo[0] + (ix-gx + 0.5)*hx); 
+              disp[1] = ya2[ip*dy2] - (lo[1] + (iy-gy + 0.5)*hy);
+              disp[2] = za2[ip*dz2] - (lo[2] + (iz-gz + 0.5)*hz);
+                
+              std::vector<double> prtcell_force = newton_force_(prtmass2[ip*dm2], disp); 
+
+              accel_x[i] += prtcell_force[0];
+              accel_y[i] += prtcell_force[1];
+              accel_z[i] += prtcell_force[2];
+
+            }
+          }
+        }
       }
     }
   }
+
+
+  // loop over all particles in this Block
+  // change this so it loops over all particles, not just the gravitating ones
+  for (int ipt = 0; ipt < num_is_grav; ipt++) {
+    const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
+
+    for (int ib = 0; ib < particle.num_batches(it); ib++) {
+
+      const int np = particle.num_particles(it,ib);
+
+      const int ia_x  = particle.attribute_index(it,"x");
+      const int ia_y  = particle.attribute_index(it,"y");
+      const int ia_z  = particle.attribute_index(it,"z");
+      const int ia_ax  = particle.attribute_index(it,"ax");
+      const int ia_ay  = particle.attribute_index(it,"ay");
+      const int ia_az  = particle.attribute_index(it,"az");
+
+      enzo_float * xa =  (enzo_float *)particle.attribute_array (it,ia_x,ib);
+      enzo_float * ya =  (enzo_float *)particle.attribute_array (it,ia_y,ib);
+      enzo_float * za =  (enzo_float *)particle.attribute_array (it,ia_z,ib);
+      enzo_float * axa =  (enzo_float *)particle.attribute_array (it,ia_ax,ib);
+      enzo_float * aya =  (enzo_float *)particle.attribute_array (it,ia_ay,ib);
+      enzo_float * aza =  (enzo_float *)particle.attribute_array (it,ia_az,ib);
+
+      const int dx =  particle.stride(it,ia_x);
+      const int dy =  particle.stride(it,ia_y);
+      const int dz =  particle.stride(it,ia_z);
+      const int dax =  particle.stride(it,ia_ax);
+      const int day =  particle.stride(it,ia_ay);
+      const int daz =  particle.stride(it,ia_az);
+
+      for (int ip=0; ip < np; ip++) {
+        
+        // compute force sourced by cells in Block b
+        for (int iz2 = gz; iz2 < mz2-gz; iz2++) {
+          for (int iy2 = gy; iy2 < my2-gy; iy2++) {
+            for (int ix2 = gx; ix2 < mx2-gx; ix2++) {
+
+              int i2 = ix2 + mx2*(iy2 + my2*iz2);
+
+              // disp points from particle in current Block to cell in Block b
+              std::vector<double> disp (3, 0);
+              disp[0] = (lo2[0] + (ix2-gx + 0.5)*hx2) - xa[ip*dx]; 
+              disp[1] = (lo2[1] + (iy2-gy + 0.5)*hy2) - ya[ip*dy];
+              disp[2] = (lo2[2] + (iz2-gz + 0.5)*hz2) - za[ip*dz];
+                
+              std::vector<double> cellprt_force = newton_force_(dens[i2]*cell_vol, disp); 
+
+              axa[ip*dax] += cellprt_force[0];
+              aya[ip*day] += cellprt_force[1];
+              aza[ip*daz] += cellprt_force[2];
+
+            }
+          }
+        }
+
+        // compute force sourced by particles in Block b
+        for (int ipt2 = 0; ipt2 < num_is_grav; ipt2++) {
+          const int it2 = particle2.type_index(particle_groups->item("is_gravitating",ipt2));
+
+          int imass2 = 0;
+
+          for (int ib2 = 0; ib2 < particle2.num_batches(it2); ib2++) {
+
+            const int np2 = particle2.num_particles(it2,ib2);
+
+            if (particle2.has_attribute(it2,"mass")) {
+              imass2 = particle2.attribute_index(it2,"mass");
+              prtmass2 = (enzo_float *) particle2.attribute_array( it2, imass2, ib2);
+              dm2 = particle2.stride(it2,imass2);
+            } 
+            else {
+              imass2 = particle2.constant_index(it2,"mass");
+              prtmass2 = (enzo_float*)particle2.constant_value(it2,imass2);
+              dm2 = 0;
+            }
+
+            const int ia_x2  = particle2.attribute_index(it2,"x");
+            const int ia_y2  = particle2.attribute_index(it2,"y");
+            const int ia_z2  = particle2.attribute_index(it2,"z");
+
+            enzo_float * xa2 =  (enzo_float *)particle2.attribute_array (it2,ia_x2,ib2);
+            enzo_float * ya2 =  (enzo_float *)particle2.attribute_array (it2,ia_y2,ib2);
+            enzo_float * za2 =  (enzo_float *)particle2.attribute_array (it2,ia_z2,ib2);
+
+            const int dx2 =  particle2.stride(it2,ia_x2);
+            const int dy2 =  particle2.stride(it2,ia_y2);
+            const int dz2 =  particle2.stride(it2,ia_z2);
+
+            for (int ip2=0; ip2 < np2; ip2++) {
+              
+              // disp points from particle in current Block to particle in Block b
+              std::vector<double> disp (3, 0);
+              disp[0] = xa2[ip2*dx2] - xa[ip*dx]; 
+              disp[1] = ya2[ip2*dy2] - ya[ip*dy];
+              disp[2] = za2[ip2*dz2] - za[ip*dz];
+                
+              std::vector<double> prtprt_force = newton_force_(prtmass2[ip2*dm2], disp); 
+
+              axa[ip*dax] += prtprt_force[0];
+              aya[ip*day] += prtprt_force[1];
+              aza[ip*daz] += prtprt_force[2];
+
+            }
+          }
+        }
+
+      }
+    }
+  }
+
+
 }
 
 
@@ -1306,3 +1852,102 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
 }
 
 /************************************************************************/
+
+/**** for particle debugging  ****/
+
+// see EnzoInitialIsolatedGalaxy for more detailed initialization
+
+ void EnzoMethodMultipole::InitializeParticles(Block * block, int nprtls, double prtls[][7]){
+
+  Particle particle = block->data()->particle();
+  ParticleDescr * particle_descr = cello::particle_descr();
+
+  double lo[3];
+  double hi[3];
+  block->lower(lo, lo+1, lo+2);
+  block->upper(hi, hi+1, hi+2);
+
+  CkPrintf("lo: %f, %f, %f\n", lo[0], lo[1], lo[2]);
+  CkPrintf("hi: %f, %f, %f\n", hi[0], hi[1], hi[2]);
+
+  //
+  // Loop through all particle types and initialize their positions and
+  // accelerations.
+  //
+
+  int ntypes = 1;
+  int * particleIcTypes = new int[ntypes];
+
+  int ipt = 0;
+  particleIcTypes[ipt] = particle_descr->type_index("star");
+  // particleIcFileNames.push_back("halo.dat");
+  // nparticles_ = std::max(nparticles_, nlines("halo.dat"));
+  // ipt++;
+
+  // Loop over all particle types and initialize
+  for(int ipt = 0; ipt < ntypes; ipt++){
+
+    int it   = particleIcTypes[ipt];
+
+    // obtain particle attribute indexes for this type
+    int ia_m = particle.attribute_index (it, "mass");
+    int ia_x = particle.attribute_index (it, "x");
+    int ia_y = particle.attribute_index (it, "y");
+    int ia_z = particle.attribute_index (it, "z");
+    int ia_ax = particle.attribute_index (it, "ax");
+    int ia_ay = particle.attribute_index (it, "ay");
+    int ia_az = particle.attribute_index (it, "az");
+
+    int ib  = 0; // batch counter
+    int ipp = 0; // particle counter
+
+    // this will point to the particular value in the
+    // particle attribute array
+    enzo_float * prtmass = 0;
+    enzo_float * px   = 0;
+    enzo_float * py   = 0;
+    enzo_float * pz   = 0;
+    enzo_float * pax  = 0;
+    enzo_float * pay  = 0;
+    enzo_float * paz  = 0;
+
+    // now loop over all particles
+    for (int i = 0; i < nprtls; i++){
+      CkPrintf("pos: %f, %f, %f\n", prtls[i][1], prtls[i][2], prtls[i][3]);
+
+      if (prtls[i][1] >= lo[0] && prtls[i][1] < hi[0] &&
+          prtls[i][2] >= lo[1] && prtls[i][2] < hi[1] &&
+          prtls[i][3] >= lo[2] && prtls[i][3] < hi[2]) {
+
+        CkPrintf("added a particle!\n");
+
+        int new_particle = particle.insert_particles(it, 1);
+        particle.index(new_particle,&ib,&ipp);
+
+        // get pointers to each of the associated arrays
+        prtmass = (enzo_float *) particle.attribute_array(it, ia_m, ib);
+        px    = (enzo_float *) particle.attribute_array(it, ia_x, ib);
+        py    = (enzo_float *) particle.attribute_array(it, ia_y, ib);
+        pz    = (enzo_float *) particle.attribute_array(it, ia_z, ib);
+        pax   = (enzo_float *) particle.attribute_array(it, ia_ax, ib);
+        pay   = (enzo_float *) particle.attribute_array(it, ia_ay, ib);
+        paz   = (enzo_float *) particle.attribute_array(it, ia_az, ib);
+
+
+        // set the particle values
+        prtmass[ipp] = prtls[i][0];
+        px[ipp]    = prtls[i][1];
+        py[ipp]    = prtls[i][2];
+        pz[ipp]    = prtls[i][3];
+        pax[ipp]   = prtls[i][4];
+        pay[ipp]   = prtls[i][5];
+        paz[ipp]   = prtls[i][6];
+      }
+
+    } // end loop over particles
+
+  } // end loop over particle types
+
+
+  return;
+}
