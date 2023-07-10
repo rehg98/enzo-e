@@ -200,7 +200,7 @@ public:
   void interact_direct_ (Block * block, char * fldbuffer_b, char * prtbuffer_b) throw(); // compute Newtonian force directly for two interacting leaves
 
   void interact_approx_send(EnzoBlock * enzo_block, Index receiver) throw();
-  void interact_direct_send(EnzoBlock * enzo_block, Index receiver) throw();
+  // void interact_direct_send(EnzoBlock * enzo_block, Index receiver) throw();
 
   void dual_walk_ (EnzoBlock * enzo_block) throw();
 

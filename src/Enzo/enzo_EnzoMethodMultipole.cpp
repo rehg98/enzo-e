@@ -22,6 +22,8 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta)
     max_volume_(0)
 { 
 
+  
+
   cello::define_field ("density");
   cello::define_field ("acceleration_x");
   cello::define_field ("acceleration_y");
@@ -136,6 +138,40 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
       c3[i] = 0;
   }
 
+  std::string string = block->name();
+  
+
+  Data * data = block->data();
+  Field field = data->field();
+  //Field field = block->data()->field();
+  enzo_float * dens = (enzo_float *) field.values("density");
+  CkPrintf("dens[0], block in compute: %f, %s\n", dens[0], string.c_str());
+
+
+  enzo_float * accel_x = (enzo_float *) field.values("acceleration_x");
+  enzo_float * accel_y = (enzo_float *) field.values("acceleration_y");
+  enzo_float * accel_z = (enzo_float *) field.values("acceleration_z");
+
+  int mx, my, mz;
+  int gx, gy, gz;
+
+  field.dimensions  (0, &mx, &my, &mz);
+  field.ghost_depth (0, &gx, &gy, &gz);
+
+  // for (int iz = gz; iz < mz-gz; iz++) {
+  //   for (int iy = gy; iy < my-gy; iy++) {
+  //     for (int ix = gx; ix < mx-gx; ix++) {
+        
+  //       int i = ix + mx * (iy + iz * my);
+  //       accel_x[i] = 0;
+  //       accel_y[i] = 0;
+  //       accel_z[i] = 0;
+
+  //     }
+  //   }
+  // }
+
+
 
   // if (level == 0) {    // for testing purposes
 
@@ -173,16 +209,16 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
   *volume_(block) = 0;
 
 
-  if (block->is_leaf()) {
+  // if (block->is_leaf()) {
 
-    CkPrintf("a leaf in compute\n");
+  //   CkPrintf("a leaf in compute\n");
 
-    int nprtls = 2;
-    // mass, x, y, z, ax, ay, az
-    double prtls[nprtls][7] = {{1.0, 0.25, 0.25, 0.5, 0, 0, 0},
-                               {1.0, -0.3, -0.42, 0.5, 0, 0, 0}};
-    InitializeParticles(block, nprtls, prtls);
-  }
+  //   int nprtls = 2;
+  //   // mass, x, y, z, ax, ay, az
+  //   double prtls[nprtls][7] = {{1.0, 0.25, 0.25, 0.5, 0, 0, 0},
+  //                              {1.0, -0.3, -0.42, 0.5, 0, 0, 0}};
+  //   InitializeParticles(block, nprtls, prtls);
+  // }
   
   compute_ (block);
 }
@@ -650,11 +686,15 @@ void EnzoMethodMultipole::unpack_coeffs_
 
 void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
 {
+  
+
   Data * data = block->data();
   Field field = data->field();
 
+  std::string string = block->name();
   const int id_dens_ = field.field_id ("density");
   enzo_float * density = (enzo_float *) field.values("density");
+  CkPrintf("dens[0], block in compute_multipole: %f, %s\n", density[0], string.c_str());
 
   int mx, my, mz;
   int gx, gy, gz;
@@ -664,7 +704,7 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
   field.ghost_depth (id_dens_, &gx, &gy, &gz);
 
   block->cell_width(&hx, &hy, &hz);
-  hz = 1.0; // this is to make math easier -- delete later
+  //hz = 1.0; // this is to make math easier -- delete later
   double cell_vol = hx * hy * hz;
   // CkPrintf("Cell dims: (%f, %f, %f)\n", hx, hy, hz);
 
@@ -879,7 +919,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
   field.ghost_depth (0, &gx, &gy, &gz);
 
   block->cell_width(&hx, &hy, &hz);
-  hz = 1.0; // this is to make math easier -- delete later
+  // hz = 1.0; // this is to make math easier -- delete later
   double cell_vol = hx * hy * hz;
 
   double lo[3];
@@ -924,8 +964,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         accel_y[i] -= block_force[1];
         accel_z[i] -= block_force[2];
 
-        CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
-        CkPrintf("Block force: %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
+        // CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
+        // CkPrintf("Block force: %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
 
         std::vector<double> tot_cell_force (3, 0); // for debugging purposes
 
@@ -945,7 +985,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
                 disp[1] = (iy2 - iy) * hy;
                 disp[2] = (iz2 - iz) * hz;
 
-                //CkPrintf("Cell mass: %f\n", dens[i2]*cell_vol);
+                // CkPrintf("Cell dens: %f\n", dens[i2]);
                 std::vector<double> cell_force = newton_force_(dens[i2]*cell_vol, disp); 
 
                 accel_x[i] += cell_force[0];
@@ -959,11 +999,13 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
                 tot_cell_force[0] += cell_force[0];
                 tot_cell_force[1] += cell_force[1];
                 tot_cell_force[2] += cell_force[2];
+
+                // CkPrintf("Partial cell force: %f, %f, %f\n", cell_force[0], cell_force[1], cell_force[2]);
               }
             }
           }
         }
-        CkPrintf("Cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        // CkPrintf("Cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
 
         std::vector<double> tot_prt_force (3, 0); // for debugging purposes
 
@@ -1021,8 +1063,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        CkPrintf("Particle force: %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
-        CkPrintf("Accel: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
+        // CkPrintf("Particle force: %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
+        // CkPrintf("Accel: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
       }
     }
   }
@@ -1081,8 +1123,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         aya[ip*day] -= block_force[1];
         aza[ip*daz] -= block_force[2];
 
-        CkPrintf("position (prt): %f, %f, %f\n", xa[ip*dx], ya[ip*dy], za[ip*dz]);
-        CkPrintf("Block force (prt): %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
+        // CkPrintf("position (prt): %f, %f, %f\n", xa[ip*dx], ya[ip*dy], za[ip*dz]);
+        // CkPrintf("Block force (prt): %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
 
         std::vector<double> tot_cell_force (3, 0); // for debugging purposes
         
@@ -1113,7 +1155,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        CkPrintf("Cell force (prt): %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        // CkPrintf("Cell force (prt): %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
 
         std::vector<double> tot_prt_force (3, 0); // for debugging purposes
 
@@ -1175,8 +1217,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        CkPrintf("Particle force (prt): %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
-        CkPrintf("Accel (prt): %f, %f, %f\n\n", axa[ip*dax], aya[ip*day], aza[ip*daz]);
+        // CkPrintf("Particle force (prt): %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
+        // CkPrintf("Accel (prt): %f, %f, %f\n\n", axa[ip*dax], aya[ip*day], aza[ip*daz]);
 
       }
     }
@@ -1453,14 +1495,15 @@ void EnzoBlock::p_method_multipole_interact_direct (int fldsize, int prtsize, ch
 void EnzoBlock::p_method_multipole_interact_direct_send (Index receiver)
 {
   EnzoMethodMultipole * method = static_cast<EnzoMethodMultipole*> (this->method());
-  method->interact_direct_send (this, receiver);
+  // method->interact_direct_send (this, receiver);
+  method->pack_dens_ (this, receiver);
 }
 
-// I don't think this is necessary? Can just call pack_dens_ in p_method_multipole_interact_direct_send
-void EnzoMethodMultipole::interact_direct_send(EnzoBlock * enzo_block, Index receiver) throw()
-{
-  pack_dens_(enzo_block, receiver);
-}
+// // I don't think this is necessary? Can just call pack_dens_ in p_method_multipole_interact_direct_send
+// void EnzoMethodMultipole::interact_direct_send(EnzoBlock * enzo_block, Index receiver) throw()
+// {
+//   pack_dens_(enzo_block, receiver);
+// }
 
 
 void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) throw()
@@ -1480,7 +1523,7 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   field.ghost_depth (0, &gx, &gy, &gz);
 
   enzo_block->cell_width(&hx, &hy, &hz);
-  hz = 1.0; // this is to make math easier -- delete later
+  // hz = 1.0; // this is to make math easier -- delete later
 
   enzo_block->lower(lo, lo+1, lo+2);
 
@@ -1532,12 +1575,15 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
   int mx, my, mz;
   int gx, gy, gz;
   double hx, hy, hz;
+  
 
   field.dimensions  (0, &mx, &my, &mz);
   field.ghost_depth (0, &gx, &gy, &gz);
+  // CkPrintf("ghosts: %d, %d, %d\n\n", gx, gy, gz);
+  // CkPrintf("field dims: %d, %d, %d\n\n", mx, my, mz);
 
   block->cell_width(&hx, &hy, &hz);
-  hz = 1.0; // this is to make math easier -- delete later
+  // hz = 1.0; // this is to make math easier -- delete later
   double cell_vol = hx * hy * hz;
 
   double lo[3];
@@ -1567,6 +1613,7 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
   ParticleDescr * particle_descr = cello::particle_descr();
   Grouping * particle_groups = particle_descr->groups();
   const int num_is_grav = particle_groups->size("is_gravitating");
+  const int num_prtl_types = particle_descr->num_types();
 
   enzo_float * prtmass2 = NULL;
   int dm2;
@@ -1586,6 +1633,8 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
 
         // CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
 
+        std::vector<double> tot_cell_force (3, 0); // for debugging
+
         // compute force sourced from cells in Block b
         for (int iz2 = gz; iz2 < mz2-gz; iz2++) {
           for (int iy2 = gy; iy2 < my2-gy; iy2++) {
@@ -1593,11 +1642,15 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
 
               int i2 = ix2 + mx2*(iy2 + my2*iz2);
 
+              // CkPrintf("position2: %f, %f, %f\n", (lo2[0] + (ix2-gx + 0.5)*hx2), (lo2[1] + (iy2-gy + 0.5)*hy2), (lo2[2] + (iz2-gz + 0.5)*hz2));
+
               // disp points from cell in current Block to cell in Block b
               std::vector<double> disp (3, 0);
-              disp[0] = lo2[0] - lo[0] + (ix2 - ix)*hx; 
-              disp[1] = lo2[1] - lo[1] + (iy2 - iy)*hy;
-              disp[2] = lo2[2] - lo[2] + (iz2 - iz)*hz;
+              disp[0] = lo2[0] - lo[0] + (ix2-gx + 0.5)*hx2 - (ix-gx + 0.5)*hx; 
+              disp[1] = lo2[1] - lo[1] + (iy2-gy + 0.5)*hy2 - (iy-gy + 0.5)*hy;
+              disp[2] = lo2[2] - lo[2] + (iz2-gz + 0.5)*hz2 - (iz-gz + 0.5)*hz;
+
+              // CkPrintf("disp: %f, %f, %f\n", disp[0], disp[1], disp[2]);
                 
               std::vector<double> cell_force = newton_force_(dens[i2]*cell_vol, disp); 
 
@@ -1605,13 +1658,25 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
               accel_y[i] += cell_force[1];
               accel_z[i] += cell_force[2];
 
+              tot_cell_force[0] += cell_force[0];
+              tot_cell_force[1] += cell_force[1];
+              tot_cell_force[2] += cell_force[2];
+
+              // if (accel_z[i] != 0) {
+              //   CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
+              //   CkPrintf("position2: %f, %f, %f\n", (lo2[0] + (ix2-gx + 0.5)*hx2), (lo2[1] + (iy2-gy + 0.5)*hy2), (lo2[2] + (iz2-gz + 0.5)*hz2));
+              //   CkPrintf("cell force: %f, %f, %f\n", cell_force[0], cell_force[1], cell_force[2]);
+              // }
             }
           }
         }
-        // CkPrintf("Leaf-leaf cell force: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
+        // CkPrintf("Leaf-leaf cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        // CkPrintf("Acceleration: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
 
         // compute cell force sourced from particles in Block b
         for (int ipt = 0; ipt < num_is_grav; ipt++) {
+          // CkPrintf("are particles exerting force?\n");
+
           const int it = particle2.type_index(particle_groups->item("is_gravitating",ipt));
 
           int imass2 = 0;
@@ -1644,6 +1709,8 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
             const int dz2 =  particle2.stride(it,ia_z2);
 
             for (int ip=0; ip < np; ip++) {
+
+              // CkPrintf("This shouldn't print\n");
               
               // disp points from cell in current Block to particle in Block b
               std::vector<double> disp (3, 0);
@@ -1668,6 +1735,7 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
   // loop over all particles in this Block
   // change this so it loops over all particles, not just the gravitating ones
   for (int ipt = 0; ipt < num_is_grav; ipt++) {
+    // CkPrintf("are particles receiving force?\n");
     const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
 
     for (int ib = 0; ib < particle.num_batches(it); ib++) {
@@ -1867,8 +1935,8 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
   block->lower(lo, lo+1, lo+2);
   block->upper(hi, hi+1, hi+2);
 
-  CkPrintf("lo: %f, %f, %f\n", lo[0], lo[1], lo[2]);
-  CkPrintf("hi: %f, %f, %f\n", hi[0], hi[1], hi[2]);
+  // CkPrintf("lo: %f, %f, %f\n", lo[0], lo[1], lo[2]);
+  // CkPrintf("hi: %f, %f, %f\n", hi[0], hi[1], hi[2]);
 
   //
   // Loop through all particle types and initialize their positions and
@@ -1913,13 +1981,13 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
 
     // now loop over all particles
     for (int i = 0; i < nprtls; i++){
-      CkPrintf("pos: %f, %f, %f\n", prtls[i][1], prtls[i][2], prtls[i][3]);
+      // CkPrintf("pos: %f, %f, %f\n", prtls[i][1], prtls[i][2], prtls[i][3]);
 
       if (prtls[i][1] >= lo[0] && prtls[i][1] < hi[0] &&
           prtls[i][2] >= lo[1] && prtls[i][2] < hi[1] &&
           prtls[i][3] >= lo[2] && prtls[i][3] < hi[2]) {
 
-        CkPrintf("added a particle!\n");
+        // CkPrintf("added a particle!\n");
 
         int new_particle = particle.insert_particles(it, 1);
         particle.index(new_particle,&ib,&ipp);
