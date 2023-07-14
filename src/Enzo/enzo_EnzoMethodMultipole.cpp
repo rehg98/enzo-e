@@ -9,7 +9,7 @@
 
 #include "enzo.hpp"
 
-#include <fstream> // necessary?
+// #include <fstream> // necessary?
 
 //----------------------------------------------------------------------
 
@@ -21,8 +21,6 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta)
     block_volume_(),
     max_volume_(0)
 { 
-
-  
 
   cello::define_field ("density");
   cello::define_field ("acceleration_x");
@@ -137,39 +135,42 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
   for (int i = 0; i < 27; i++){
       c3[i] = 0;
   }
-
-  std::string string = block->name();
   
 
   Data * data = block->data();
   Field field = data->field();
-  //Field field = block->data()->field();
+
   enzo_float * dens = (enzo_float *) field.values("density");
-  CkPrintf("dens[0], block in compute: %f, %s\n", dens[0], string.c_str());
-
-
   enzo_float * accel_x = (enzo_float *) field.values("acceleration_x");
   enzo_float * accel_y = (enzo_float *) field.values("acceleration_y");
   enzo_float * accel_z = (enzo_float *) field.values("acceleration_z");
 
-  int mx, my, mz;
-  int gx, gy, gz;
+  // CkPrintf("density: %p\n", dens);
+  // CkPrintf("acceleration: %p\n", accel_x);
 
-  field.dimensions  (0, &mx, &my, &mz);
-  field.ghost_depth (0, &gx, &gy, &gz);
+  // int mx, my, mz;
+  // int gx, gy, gz;
 
+  // field.dimensions  (0, &mx, &my, &mz);
+  // field.ghost_depth (0, &gx, &gy, &gz);
+
+  // std::string string = block->name();
+  // CkPrintf("%s in compute\n", string.c_str());
   // for (int iz = gz; iz < mz-gz; iz++) {
   //   for (int iy = gy; iy < my-gy; iy++) {
   //     for (int ix = gx; ix < mx-gx; ix++) {
         
   //       int i = ix + mx * (iy + iz * my);
-  //       accel_x[i] = 0;
-  //       accel_y[i] = 0;
-  //       accel_z[i] = 0;
+  //       CkPrintf("%f ", accel_x[i]);
+  //       // accel_x[i] = 0;
+  //       // accel_y[i] = 0;
+  //       // accel_z[i] = 0;
 
   //     }
   //   }
   // }
+  // CkPrintf("\n\n");
+
 
 
 
@@ -209,16 +210,18 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
   *volume_(block) = 0;
 
 
-  // if (block->is_leaf()) {
+  if (block->is_leaf()) {
 
-  //   CkPrintf("a leaf in compute\n");
+    // CkPrintf("a leaf in compute\n");
 
-  //   int nprtls = 2;
-  //   // mass, x, y, z, ax, ay, az
-  //   double prtls[nprtls][7] = {{1.0, 0.25, 0.25, 0.5, 0, 0, 0},
-  //                              {1.0, -0.3, -0.42, 0.5, 0, 0, 0}};
-  //   InitializeParticles(block, nprtls, prtls);
-  // }
+    int nprtls = 4;
+    // mass, x, y, z, ax, ay, az
+    double prtls[nprtls][7] = {{1.0, 0.3, 0.3, 0.5, 0, 0, 0},
+                               {1.0, -0.3, -0.42, 0.5, 0, 0, 0},
+                               {0.5, 0.35, 0.45, 0.5, 0, 0, 0},
+                               {10.0, -0.5, 0.0, 0.5, 0, 0, 0}};
+    InitializeParticles(block, nprtls, prtls);
+  }
   
   compute_ (block);
 }
@@ -308,6 +311,8 @@ void EnzoBlock::r_method_multipole_dualwalk_barrier(CkReductionMsg* msg)
 {
   EnzoMethodMultipole * method =
     static_cast<EnzoMethodMultipole*> (this->method());
+
+  // method->begin_down_cycle_(this);
 
   if (cello::hierarchy()->max_level() == 0) {
     method->begin_down_cycle_(this);
@@ -481,9 +486,9 @@ void EnzoMethodMultipole::prolong_send(EnzoBlock * enzo_block) throw()
 
     Index index_child = enzo_block->index().index_child(ic3, cello::hierarchy()->min_level());
 
-    //std::string string = enzo_block->name(index_child);
-    //CkPrintf("sending to block name = %s\n", string.c_str());
-    //fflush(stdout);
+    // std::string string = enzo_block->name(index_child);
+    // CkPrintf("sending to block name = %s\n", string.c_str());
+    // fflush(stdout);
 
     enzo::block_array()[index_child].p_method_multipole_prolong_recv(msg);  
 
@@ -685,23 +690,25 @@ void EnzoMethodMultipole::unpack_coeffs_
 /// FMM functions
 
 void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
-{
-  
+{  
 
   Data * data = block->data();
   Field field = data->field();
 
   std::string string = block->name();
-  const int id_dens_ = field.field_id ("density");
+  // const int id_dens_ = field.field_id ("density");
   enzo_float * density = (enzo_float *) field.values("density");
-  CkPrintf("dens[0], block in compute_multipole: %f, %s\n", density[0], string.c_str());
+  // enzo_float * accel_x = (enzo_float *) field.values("acceleration_x");
+  //CkPrintf("dens[2], block in compute_multipole: %f, %s\n", density[2], string.c_str());
+
+  
 
   int mx, my, mz;
   int gx, gy, gz;
   double hx, hy, hz;
 
-  field.dimensions  (id_dens_, &mx, &my, &mz);
-  field.ghost_depth (id_dens_, &gx, &gy, &gz);
+  field.dimensions  (0, &mx, &my, &mz);
+  field.ghost_depth (0, &gx, &gy, &gz);
 
   block->cell_width(&hx, &hy, &hz);
   //hz = 1.0; // this is to make math easier -- delete later
@@ -710,6 +717,25 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
 
   double lo[3];
   block->lower(lo, lo+1, lo+2);
+
+  // CkPrintf("%s\n", string.c_str());
+  // for (int i = 0; i < mx*my*mz; i++) {
+  //   CkPrintf("%f ", density[i]);
+  // }
+  
+  //std::string string = block->name();
+  // CkPrintf("%s accel in compute_multipole\n", string.c_str());
+  // for (int iz = gz; iz < mz-gz; iz++) {
+  //   for (int iy = gy; iy < my-gy; iy++) {
+  //     for (int ix = gx; ix < mx-gx; ix++) {
+        
+  //       double acc = accel_x[ix + mx * (iy + iz * my)];
+
+  //       CkPrintf("(%d, %d, %d): %f  ", ix, iy, iz, acc);
+  //     }
+  //   }
+  // }
+  // CkPrintf("\n\n");
 
 
   Particle particle = block->data()->particle();
@@ -740,6 +766,8 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
         
         double dens = density[ix + mx * (iy + iz * my)];
 
+        // CkPrintf("(%d, %d, %d): %f  ", ix, iy, iz, dens);
+
         *mass += dens * cell_vol;
 
 	      weighted_sum[0] += dens * cell_vol * (lo[0] + (ix-gx + 0.5)*hx); 
@@ -749,6 +777,8 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
       }
     }
   }
+
+  
 
   // loop over particles, adding masses to *mass and adding mass*position to weighted_sum
   for (int ipt = 0; ipt < num_is_grav; ipt++) {
@@ -906,10 +936,12 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
   Data * data = block->data();
   Field field = data->field();
   
-  enzo_float * dens = (enzo_float*) field.values ("density");
+  
   enzo_float * accel_x = (enzo_float*) field.values ("acceleration_x");
   enzo_float * accel_y = (enzo_float*) field.values ("acceleration_y");
   enzo_float * accel_z = (enzo_float*) field.values ("acceleration_z");
+
+  enzo_float * dens = (enzo_float*) field.values ("density");
 
   int mx, my, mz;
   int gx, gy, gz;
@@ -918,6 +950,20 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
   field.dimensions  (0, &mx, &my, &mz);
   field.ghost_depth (0, &gx, &gy, &gz);
 
+  // std::string string = block->name();
+  // CkPrintf("%s accel\n", string.c_str());
+  // for (int iz = gz; iz < mz-gz; iz++) {
+  //   for (int iy = gy; iy < my-gy; iy++) {
+  //     for (int ix = gx; ix < mx-gx; ix++) {
+        
+  //       double acc = accel_x[ix + mx * (iy + iz * my)];
+
+  //       CkPrintf("(%d, %d, %d): %f  ", ix, iy, iz, acc);
+  //     }
+  //   }
+  // }
+  // CkPrintf("\n\n");
+
   block->cell_width(&hx, &hy, &hz);
   // hz = 1.0; // this is to make math easier -- delete later
   double cell_vol = hx * hy * hz;
@@ -925,11 +971,12 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
   double lo[3];
   block->lower(lo, lo+1, lo+2);
 
+
   Particle particle = block->data()->particle();
   ParticleDescr * particle_descr = cello::particle_descr();
   Grouping * particle_groups = particle_descr->groups();
   const int num_is_grav = particle_groups->size("is_gravitating");
-  const int num_prtl_groups = particle_descr->num_types();
+  const int num_prtl_types = particle_descr->num_types();
 
   // distinguish between mass as attribute vs. mass as constant??
   enzo_float * prtmass2 = NULL;
@@ -964,8 +1011,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         accel_y[i] -= block_force[1];
         accel_z[i] -= block_force[2];
 
-        // CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
-        // CkPrintf("Block force: %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
+        CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
+        CkPrintf("Block force: %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
 
         std::vector<double> tot_cell_force (3, 0); // for debugging purposes
 
@@ -1005,7 +1052,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
             }
           }
         }
-        // CkPrintf("Cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        CkPrintf("Cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
 
         std::vector<double> tot_prt_force (3, 0); // for debugging purposes
 
@@ -1063,22 +1110,35 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        // CkPrintf("Particle force: %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
-        // CkPrintf("Accel: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
+        CkPrintf("Particle force: %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
+        CkPrintf("Accel: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
       }
     }
   }
+
+
+  //std::string string = block->name();
+  // CkPrintf("%s dens\n", string.c_str());
+  // for (int iz = gz; iz < mz-gz; iz++) {
+  //   for (int iy = gy; iy < my-gy; iy++) {
+  //     for (int ix = gx; ix < mx-gx; ix++) {
+        
+  //       double denses = dens[ix + mx * (iy + iz * my)];
+
+  //       CkPrintf("(%d, %d, %d): %f  ", ix, iy, iz, denses);
+  //     }
+  //   }
+  // }
+  // CkPrintf("\n\n");
+  // 
 
 
 
   // loop over all particles
   // change this to loop over all particles, not just the ones that are gravitating
 
-  // for (int it = 0; it < num_prtl_types; it++)
-  //  replace ipt with it? are particle types indexed contiguously?
-  for (int ipt = 0; ipt < num_is_grav; ipt++) {
-    const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
-
+  for (int it = 0; it < num_prtl_types; it++) {
+    
     for (int ib = 0; ib < particle.num_batches(it); ib++) {
 
       const int np = particle.num_particles(it,ib);
@@ -1123,8 +1183,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         aya[ip*day] -= block_force[1];
         aza[ip*daz] -= block_force[2];
 
-        // CkPrintf("position (prt): %f, %f, %f\n", xa[ip*dx], ya[ip*dy], za[ip*dz]);
-        // CkPrintf("Block force (prt): %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
+        CkPrintf("position (prt): %f, %f, %f\n", xa[ip*dx], ya[ip*dy], za[ip*dz]);
+        CkPrintf("Block force (prt): %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
 
         std::vector<double> tot_cell_force (3, 0); // for debugging purposes
         
@@ -1155,7 +1215,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        // CkPrintf("Cell force (prt): %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        CkPrintf("Cell force (prt): %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
 
         std::vector<double> tot_prt_force (3, 0); // for debugging purposes
 
@@ -1217,8 +1277,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        // CkPrintf("Particle force (prt): %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
-        // CkPrintf("Accel (prt): %f, %f, %f\n\n", axa[ip*dax], aya[ip*day], aza[ip*daz]);
+        CkPrintf("Particle force (prt): %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
+        CkPrintf("Accel (prt): %f, %f, %f\n\n", axa[ip*dax], aya[ip*day], aza[ip*daz]);
 
       }
     }
@@ -1631,7 +1691,7 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
 
         int i = ix + mx*(iy + my*iz);
 
-        // CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
+        CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
 
         std::vector<double> tot_cell_force (3, 0); // for debugging
 
@@ -1652,7 +1712,7 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
 
               // CkPrintf("disp: %f, %f, %f\n", disp[0], disp[1], disp[2]);
                 
-              std::vector<double> cell_force = newton_force_(dens[i2]*cell_vol, disp); 
+              std::vector<double> cell_force = newton_force_(dens[i2]*hx2*hy2*hz2, disp); 
 
               accel_x[i] += cell_force[0];
               accel_y[i] += cell_force[1];
@@ -1670,8 +1730,8 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
             }
           }
         }
-        // CkPrintf("Leaf-leaf cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
-        // CkPrintf("Acceleration: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
+        CkPrintf("Leaf-leaf cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        CkPrintf("Acceleration: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
 
         // compute cell force sourced from particles in Block b
         for (int ipt = 0; ipt < num_is_grav; ipt++) {
@@ -1733,10 +1793,7 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
 
 
   // loop over all particles in this Block
-  // change this so it loops over all particles, not just the gravitating ones
-  for (int ipt = 0; ipt < num_is_grav; ipt++) {
-    // CkPrintf("are particles receiving force?\n");
-    const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
+  for (int it = 0; it < num_prtl_types; it++) {
 
     for (int ib = 0; ib < particle.num_batches(it); ib++) {
 
@@ -1778,7 +1835,7 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
               disp[1] = (lo2[1] + (iy2-gy + 0.5)*hy2) - ya[ip*dy];
               disp[2] = (lo2[2] + (iz2-gz + 0.5)*hz2) - za[ip*dz];
                 
-              std::vector<double> cellprt_force = newton_force_(dens[i2]*cell_vol, disp); 
+              std::vector<double> cellprt_force = newton_force_(dens[i2]*hx2*hy2*hz2, disp); 
 
               axa[ip*dax] += cellprt_force[0];
               aya[ip*day] += cellprt_force[1];
@@ -1943,11 +2000,12 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
   // accelerations.
   //
 
-  int ntypes = 1;
+  int ntypes = 2;
   int * particleIcTypes = new int[ntypes];
 
-  int ipt = 0;
-  particleIcTypes[ipt] = particle_descr->type_index("star");
+  particleIcTypes[0] = particle_descr->type_index("star");
+  particleIcTypes[1] = particle_descr->type_index("trace");
+
   // particleIcFileNames.push_back("halo.dat");
   // nparticles_ = std::max(nparticles_, nlines("halo.dat"));
   // ipt++;
@@ -1958,7 +2016,6 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
     int it   = particleIcTypes[ipt];
 
     // obtain particle attribute indexes for this type
-    int ia_m = particle.attribute_index (it, "mass");
     int ia_x = particle.attribute_index (it, "x");
     int ia_y = particle.attribute_index (it, "y");
     int ia_z = particle.attribute_index (it, "z");
@@ -1971,7 +2028,7 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
 
     // this will point to the particular value in the
     // particle attribute array
-    enzo_float * prtmass = 0;
+
     enzo_float * px   = 0;
     enzo_float * py   = 0;
     enzo_float * pz   = 0;
@@ -1979,40 +2036,77 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
     enzo_float * pay  = 0;
     enzo_float * paz  = 0;
 
-    // now loop over all particles
-    for (int i = 0; i < nprtls; i++){
-      // CkPrintf("pos: %f, %f, %f\n", prtls[i][1], prtls[i][2], prtls[i][3]);
+    if (ipt != ntypes-1) {
+
+      int ia_m = particle.attribute_index (it, "mass");
+      enzo_float * prtmass = 0;
+
+      for (int i = 0; i < nprtls-1; i++){
+
+        // CkPrintf("pos: %f, %f, %f\n", prtls[i][1], prtls[i][2], prtls[i][3]);
+
+        if (prtls[i][1] >= lo[0] && prtls[i][1] < hi[0] &&
+            prtls[i][2] >= lo[1] && prtls[i][2] < hi[1] &&
+            prtls[i][3] >= lo[2] && prtls[i][3] < hi[2]) {
+
+          // CkPrintf("added a particle!\n");
+
+          int new_particle = particle.insert_particles(it, 1);
+          particle.index(new_particle,&ib,&ipp);
+
+          // get pointers to each of the associated arrays
+          prtmass = (enzo_float *) particle.attribute_array(it, ia_m, ib);
+          px    = (enzo_float *) particle.attribute_array(it, ia_x, ib);
+          py    = (enzo_float *) particle.attribute_array(it, ia_y, ib);
+          pz    = (enzo_float *) particle.attribute_array(it, ia_z, ib);
+          pax   = (enzo_float *) particle.attribute_array(it, ia_ax, ib);
+          pay   = (enzo_float *) particle.attribute_array(it, ia_ay, ib);
+          paz   = (enzo_float *) particle.attribute_array(it, ia_az, ib);
+
+
+          // set the particle values
+          prtmass[ipp] = prtls[i][0];
+          px[ipp]    = prtls[i][1];
+          py[ipp]    = prtls[i][2];
+          pz[ipp]    = prtls[i][3];
+          pax[ipp]   = prtls[i][4];
+          pay[ipp]   = prtls[i][5];
+          paz[ipp]   = prtls[i][6];
+        }
+      }
+    } 
+
+    else {
+
+      int i = nprtls - 1;
 
       if (prtls[i][1] >= lo[0] && prtls[i][1] < hi[0] &&
-          prtls[i][2] >= lo[1] && prtls[i][2] < hi[1] &&
-          prtls[i][3] >= lo[2] && prtls[i][3] < hi[2]) {
+            prtls[i][2] >= lo[1] && prtls[i][2] < hi[1] &&
+            prtls[i][3] >= lo[2] && prtls[i][3] < hi[2]) {
 
-        // CkPrintf("added a particle!\n");
+          // CkPrintf("added a particle!\n");
 
-        int new_particle = particle.insert_particles(it, 1);
-        particle.index(new_particle,&ib,&ipp);
+          int new_particle = particle.insert_particles(it, 1);
+          particle.index(new_particle,&ib,&ipp);
 
-        // get pointers to each of the associated arrays
-        prtmass = (enzo_float *) particle.attribute_array(it, ia_m, ib);
-        px    = (enzo_float *) particle.attribute_array(it, ia_x, ib);
-        py    = (enzo_float *) particle.attribute_array(it, ia_y, ib);
-        pz    = (enzo_float *) particle.attribute_array(it, ia_z, ib);
-        pax   = (enzo_float *) particle.attribute_array(it, ia_ax, ib);
-        pay   = (enzo_float *) particle.attribute_array(it, ia_ay, ib);
-        paz   = (enzo_float *) particle.attribute_array(it, ia_az, ib);
+          // get pointers to each of the associated arrays
+          px    = (enzo_float *) particle.attribute_array(it, ia_x, ib);
+          py    = (enzo_float *) particle.attribute_array(it, ia_y, ib);
+          pz    = (enzo_float *) particle.attribute_array(it, ia_z, ib);
+          pax   = (enzo_float *) particle.attribute_array(it, ia_ax, ib);
+          pay   = (enzo_float *) particle.attribute_array(it, ia_ay, ib);
+          paz   = (enzo_float *) particle.attribute_array(it, ia_az, ib);
 
 
-        // set the particle values
-        prtmass[ipp] = prtls[i][0];
-        px[ipp]    = prtls[i][1];
-        py[ipp]    = prtls[i][2];
-        pz[ipp]    = prtls[i][3];
-        pax[ipp]   = prtls[i][4];
-        pay[ipp]   = prtls[i][5];
-        paz[ipp]   = prtls[i][6];
+          // set the particle values
+          px[ipp]    = prtls[i][1];
+          py[ipp]    = prtls[i][2];
+          pz[ipp]    = prtls[i][3];
+          pax[ipp]   = prtls[i][4];
+          pay[ipp]   = prtls[i][5];
+          paz[ipp]   = prtls[i][6];
       }
-
-    } // end loop over particles
+    }
 
   } // end loop over particle types
 
