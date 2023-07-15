@@ -243,13 +243,22 @@ void EnzoMethodMultipole::compute_ (Block * block) throw()
   EnzoBlock * enzo_block = enzo::block(block);
   int level = enzo_block->level();
 
-  // double * mass = pmass(block);
-  // double * com = pcom(block);
-  // double * quadrupole = pquadrupole(block);
+  double * mass = pmass(block);
+  double * com = pcom(block);
+  double * quadrupole = pquadrupole(block);
   
   if (block->is_leaf()) {
     
     compute_multipoles_ (block);
+
+    CkPrintf("total mass after compute_multipoles_: %f\n", *mass); 
+    CkPrintf("COM: (%f, %f, %f)\n", com[0], com[1], com[2]);
+    CkPrintf("quadrupole: ");
+    for (int i = 0; i < 9; i++) {
+      CkPrintf("%f  ", quadrupole[i]);
+    }
+    CkPrintf("\n\n");
+
     begin_up_cycle_ (enzo_block);
     
   } else {
@@ -689,19 +698,13 @@ void EnzoMethodMultipole::unpack_coeffs_
 /************************************************************************/
 /// FMM functions
 
+
+// optimized compute multipoles 
 void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
 {  
+  Field field = block->data()->field();
 
-  Data * data = block->data();
-  Field field = data->field();
-
-  std::string string = block->name();
-  // const int id_dens_ = field.field_id ("density");
   enzo_float * density = (enzo_float *) field.values("density");
-  // enzo_float * accel_x = (enzo_float *) field.values("acceleration_x");
-  //CkPrintf("dens[2], block in compute_multipole: %f, %s\n", density[2], string.c_str());
-
-  
 
   int mx, my, mz;
   int gx, gy, gz;
@@ -711,76 +714,54 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
   field.ghost_depth (0, &gx, &gy, &gz);
 
   block->cell_width(&hx, &hy, &hz);
-  //hz = 1.0; // this is to make math easier -- delete later
   double cell_vol = hx * hy * hz;
   // CkPrintf("Cell dims: (%f, %f, %f)\n", hx, hy, hz);
 
   double lo[3];
   block->lower(lo, lo+1, lo+2);
 
-  // CkPrintf("%s\n", string.c_str());
-  // for (int i = 0; i < mx*my*mz; i++) {
-  //   CkPrintf("%f ", density[i]);
-  // }
-  
-  //std::string string = block->name();
-  // CkPrintf("%s accel in compute_multipole\n", string.c_str());
-  // for (int iz = gz; iz < mz-gz; iz++) {
-  //   for (int iy = gy; iy < my-gy; iy++) {
-  //     for (int ix = gx; ix < mx-gx; ix++) {
-        
-  //       double acc = accel_x[ix + mx * (iy + iz * my)];
-
-  //       CkPrintf("(%d, %d, %d): %f  ", ix, iy, iz, acc);
-  //     }
-  //   }
-  // }
-  // CkPrintf("\n\n");
-
-
   Particle particle = block->data()->particle();
   ParticleDescr * particle_descr = cello::particle_descr();
   Grouping * particle_groups = particle_descr->groups();
   const int num_is_grav = particle_groups->size("is_gravitating");
 
-  // distinguish between mass as attribute vs. mass as constant??
+  // distinguish between mass as attribute vs. mass as constant
   enzo_float * prtmass = NULL;
   int dm;
 
-
-
-  double weighted_sum[3] = {};
+  double com_sum[3] = {};
+  double quad_sum[9] = {};
 
   double * mass = pmass(block);
   double * com = pcom(block);
   double * quadrupole = pquadrupole(block);
 
-
-  // can compute quadrupole in the same loop as the mass and com -- just need running sum over positions squared
-  // ()
   // should I have an if-statement with "rank" here to separate out 1D, 2D, and 3D?
 
+  // loop over cells
   for (int iz = gz; iz < mz-gz; iz++) {
     for (int iy = gy; iy < my-gy; iy++) {
       for (int ix = gx; ix < mx-gx; ix++) {
         
         double dens = density[ix + mx * (iy + iz * my)];
+        double cell_mass = dens * cell_vol;
+        double pos[3] = {lo[0] + (ix-gx + 0.5)*hx, lo[1] + (iy-gy + 0.5)*hy, lo[2] + (iz-gz + 0.5)*hz};
 
-        // CkPrintf("(%d, %d, %d): %f  ", ix, iy, iz, dens);
+        *mass += cell_mass;
 
-        *mass += dens * cell_vol;
+        for (int i = 0; i < 3; i++) {
+          com_sum[i] += cell_mass * pos[i];
+        }
 
-	      weighted_sum[0] += dens * cell_vol * (lo[0] + (ix-gx + 0.5)*hx); 
-	      weighted_sum[1] += dens * cell_vol * (lo[1] + (iy-gy + 0.5)*hy); 
-	      weighted_sum[2] += dens * cell_vol * (lo[2] + (iz-gz + 0.5)*hz);
+        for (int i = 0; i < 9; i++) {
+          quad_sum[i] += cell_mass * pos[i/3] * pos[i%3];
+        }
 
       }
     }
   }
 
-  
-
-  // loop over particles, adding masses to *mass and adding mass*position to weighted_sum
+  // loop over particles
   for (int ipt = 0; ipt < num_is_grav; ipt++) {
     const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
 
@@ -841,92 +822,30 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
         
         *mass += prtmass[ip*dm];
 
-        // how are particle x, y, z defined? where is origin?
-        weighted_sum[0] += prtmass[ip*dm] * xa[ip*dx]; 
-	      weighted_sum[1] += prtmass[ip*dm] * ya[ip*dy]; 
-	      weighted_sum[2] += prtmass[ip*dm] * za[ip*dz];
+        double pos[3] = {xa[ip*dx], ya[ip*dy], za[ip*dz]};
+        
+        for (int i = 0; i < 3; i++) {
+          com_sum[i] += prtmass[ip*dm] * pos[i];
+        }
+
+        for (int i = 0; i < 9; i++) {
+          quad_sum[i] += prtmass[ip*dm] * pos[i/3] * pos[i%3];
+        }
 
       }
     }
   }
   
+  if (*mass != 0) {
 
-  if (*mass != 0) { 
-
-    com[0] = weighted_sum[0] / *mass;
-    com[1] = weighted_sum[1] / *mass;
-    com[2] = weighted_sum[2] / *mass;
-
-    // can compute quadrupole in one loop?
-    for (int iz = gz; iz < mz-gz; iz++) {
-      for (int iy = gy; iy < my-gy; iy++) {
-        for (int ix = gx; ix < mx-gx; ix++) {
-          
-          double dens = density[ix + mx * (iy + iz * my)];
-
-          double disp[3]; // do I need to delete disp later?
-          disp[0] = (lo[0] + (ix-gx + 0.5)*hx) - com[0]; 
-          disp[1] = (lo[1] + (iy-gy + 0.5)*hy) - com[1];
-          disp[2] = (lo[2] + (iz-gz + 0.5)*hz) - com[2]; 
-
-          for (int j = 0; j < 3; j++) {
-            for (int i = 0; i < 3; i++) {
-              quadrupole[3*i + j] += dens * cell_vol * disp[i] * disp[j];
-            }
-          }
-        }
-      }
+    for (int i = 0; i < 3; i++) {
+      com[i] = com_sum[i] / *mass;
     }
 
-
-    for (int ipt = 0; ipt < num_is_grav; ipt++) {
-      const int it = particle.type_index(particle_groups->item("is_gravitating",ipt));
-
-      int imass = 0;
-
-      for (int ib = 0; ib < particle.num_batches(it); ib++) {
-
-        const int np = particle.num_particles(it,ib);
-
-        if (particle.has_attribute(it,"mass")) {
-          imass = particle.attribute_index(it,"mass");
-          prtmass = (enzo_float *) particle.attribute_array( it, imass, ib);
-          dm = particle.stride(it,imass);
-        } 
-        else {
-          imass = particle.constant_index(it,"mass");
-          prtmass = (enzo_float*)particle.constant_value(it,imass);
-          dm = 0;
-        }
-
-        const int ia_x  = particle.attribute_index(it,"x");
-        const int ia_y  = particle.attribute_index(it,"y");
-        const int ia_z  = particle.attribute_index(it,"z");
-
-        enzo_float * xa =  (enzo_float *)particle.attribute_array (it,ia_x,ib);
-        enzo_float * ya =  (enzo_float *)particle.attribute_array (it,ia_y,ib);
-        enzo_float * za =  (enzo_float *)particle.attribute_array (it,ia_z,ib);
-
-        const int dx =  particle.stride(it,ia_x);
-        const int dy =  particle.stride(it,ia_y);
-        const int dz =  particle.stride(it,ia_z);
-
-        for (int ip=0; ip < np; ip++) {
-
-          double disp[3]; // do I need to delete disp later?
-          disp[0] = xa[ip*dx] - com[0]; 
-          disp[1] = ya[ip*dy] - com[1];
-          disp[2] = za[ip*dz] - com[2]; 
-
-          for (int j = 0; j < 3; j++) {
-            for (int i = 0; i < 3; i++) {
-              quadrupole[3*i + j] += prtmass[ip*dm] * disp[i] * disp[j];
-            }
-          }
-        }
-      }
+    for (int i = 0; i < 9; i++) {
+      quadrupole[i] = quad_sum[i] - *mass * com[i/3] * com[i%3];
     }
-    
+
   }
 }
 
