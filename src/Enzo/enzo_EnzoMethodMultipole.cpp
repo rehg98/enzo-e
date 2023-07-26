@@ -207,6 +207,8 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
   max_volume_ = nb3[0]*nb3[1]*nb3[2];
   max_volume_ *= block_volume_[0];  // in James' code, this is block_volume_[max_level_ - min_level_]
 
+  // CkPrintf("Block volume[0], max_volume: %d, %lld\n", block_volume_[0], max_volume_);
+
   *volume_(block) = 0;
 
 
@@ -251,13 +253,13 @@ void EnzoMethodMultipole::compute_ (Block * block) throw()
     
     compute_multipoles_ (block);
 
-    CkPrintf("total mass after compute_multipoles_: %f\n", *mass); 
-    CkPrintf("COM: (%f, %f, %f)\n", com[0], com[1], com[2]);
-    CkPrintf("quadrupole: ");
-    for (int i = 0; i < 9; i++) {
-      CkPrintf("%f  ", quadrupole[i]);
-    }
-    CkPrintf("\n\n");
+    // CkPrintf("total mass after compute_multipoles_: %f\n", *mass); 
+    // CkPrintf("COM: (%f, %f, %f)\n", com[0], com[1], com[2]);
+    // CkPrintf("quadrupole: ");
+    // for (int i = 0; i < 9; i++) {
+    //   CkPrintf("%f  ", quadrupole[i]);
+    // }
+    // CkPrintf("\n\n");
 
     begin_up_cycle_ (enzo_block);
     
@@ -337,7 +339,7 @@ void EnzoBlock::r_method_multipole_dualwalk_barrier(CkReductionMsg* msg)
 void EnzoMethodMultipole::dual_walk_(EnzoBlock * enzo_block) throw()
 {
 
-  Index index = enzo_block->index();
+  const Index& index = enzo_block->index();
   int level = enzo_block->level();
 
   *volume_(enzo_block) = block_volume_[level];
@@ -346,8 +348,44 @@ void EnzoMethodMultipole::dual_walk_(EnzoBlock * enzo_block) throw()
 
     // call interact on all pairs of root blocks
 
-    int type = enzo_block->is_leaf() ? 1 : 0;
-    enzo::block_array()[index].p_method_multipole_traverse(index, type);
+    int nx, ny, nz;
+    cello::hierarchy()->root_blocks(&nx, &ny, &nz);
+
+    CkPrintf("Root dimensions: %d, %d, %d \n", nx, ny, nz);
+
+    if (nx*ny*nz != 1) {
+
+      for (int iaz = 0; iaz < nz; iaz++) {
+        for (int iay = 0; iay < ny; iay++) {
+          for (int iax = 0; iax < nx; iax++) {
+
+            const Index other_ind(iax, iay, iaz);
+
+            if (index < other_ind) {
+              continue;
+            }
+            else {
+
+              CkPrintf("Root entering traverse\n");
+
+              
+              // start the dual tree walk on all pairs of root blocks
+              int type = enzo_block->is_leaf() ? 1 : 0;
+              enzo::block_array()[index].p_method_multipole_traverse(other_ind, type);
+              
+            }
+
+          }
+        }
+      }
+    }
+
+    else
+    {
+      int type = enzo_block->is_leaf() ? 1 : 0;
+      enzo::block_array()[index].p_method_multipole_traverse(index, type);
+    }
+
   }
 
   if (! enzo_block->is_leaf()) {
@@ -366,6 +404,8 @@ void EnzoBlock::r_method_multipole_traverse_complete(CkReductionMsg * msg)
 {
   // delete msg; is this necessary?
 
+  CkPrintf("Making it to traverse_complete?\n");
+
   EnzoMethodMultipole * method =
     static_cast<EnzoMethodMultipole*> (this->method());
 
@@ -376,7 +416,41 @@ void EnzoBlock::r_method_multipole_traverse_complete(CkReductionMsg * msg)
 
 void EnzoMethodMultipole::begin_down_cycle_(EnzoBlock * enzo_block) throw()
 {
+  CkPrintf("Make it to down_cycle?\n");
+
   const int level = enzo_block->level();
+
+  if (cello::hierarchy()->max_level() == 0) { 
+
+    // loop over all root blocks and compute direct interactions
+
+    const Index& cur_index = enzo_block->index();
+
+    int nx, ny, nz;
+    cello::hierarchy()->root_blocks(&nx, &ny, &nz);
+
+    CkPrintf("Root blocks: %d, %d, %d\n", nx, ny, nz);
+
+    for (int iaz = 0; iaz < nz; iaz++) {
+      for (int iay = 0; iay < ny; iay++) {
+        for (int iax = 0; iax < nx; iax++) {
+
+          const Index other_ind(iax, iay, iaz);
+
+          if (other_ind == cur_index) {
+            continue;
+          }
+          else {
+            
+            // compute the a->b interaction
+            pack_dens_(enzo_block, other_ind);
+            
+          }
+
+        }
+      }
+    }
+  }
 
   double * c1 = pc1(enzo_block);
   double * c2 = pc2(enzo_block);
@@ -1305,6 +1379,8 @@ void EnzoMethodMultipole::traverse
 
   else if (ra < rb) { // open the larger block (b)
 
+    // CkPrintf("Larger block opened, b\n");
+
     while (it_child_b.next(icb3)) {
       Index index_b_child = index_b.index_child(icb3, 0);
       traverse(enzo_block,index_b_child,-1);
@@ -1312,6 +1388,8 @@ void EnzoMethodMultipole::traverse
   } 
   
   else {  // open the larger block (a)
+
+    // CkPrintf("Larger block opened, a\n");
 
     while (it_child_a.next(ica3)) {
       Index index_a_child = index_a.index_child(ica3, 0);
@@ -1835,10 +1913,12 @@ void EnzoMethodMultipole::update_volume
 {
 
   std::string string = enzo_block->name();
+   
 
   if (enzo_block->is_leaf()) {
 
     *volume_(enzo_block) += volume;
+    // CkPrintf("volume of leaf before if-statement: %lld\n", *volume_(enzo_block));
 
     if (*volume_(enzo_block) == max_volume_) {
 
