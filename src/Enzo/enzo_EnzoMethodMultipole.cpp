@@ -13,10 +13,12 @@
 
 //----------------------------------------------------------------------
 
-EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta)
+EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double eps0, double r0)
   : Method(),
     timeStep_(timeStep),
     theta_(theta),
+    eps0_(eps0),
+    r0_(r0),
     is_volume_(-1),
     block_volume_(),
     max_volume_(0)
@@ -88,6 +90,8 @@ void EnzoMethodMultipole::pup (PUP::er &p)
   p | i_c3_;
 
   p | theta_;
+  p | eps0_;
+  p | r0_;
   p | is_volume_;
   p | block_volume_;
   p | max_volume_;

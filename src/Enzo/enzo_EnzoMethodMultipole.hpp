@@ -19,12 +19,14 @@ class EnzoMethodMultipole : public Method {
 public: // interface -- which methods should be public and which protected?
 
   /// Create a new EnzoMethodMultipole object
-  EnzoMethodMultipole(double timeStep, double theta);
+  EnzoMethodMultipole(double timeStep, double theta, double eps0, double r0);
 
   EnzoMethodMultipole()
     : Method(),
       timeStep_(10000.0),
       theta_(0),
+      eps0_(0),
+      r0_(0),
       is_volume_(-1),
       block_volume_(),
       max_volume_(0)
@@ -42,6 +44,8 @@ public: // interface -- which methods should be public and which protected?
       i_msg_restrict_(),
       i_msg_prolong_(-1),
       theta_(0),
+      eps0_(0),
+      r0_(0),
       is_volume_(-1),
       block_volume_(),
       max_volume_(0)
@@ -178,18 +182,59 @@ protected: // methods
 
   void evaluate_force_ (Block * block) throw();  // compute force from taylor coeffs
 
-  // compute the Newtonian acceleration induced on this cell/particle by Cell/Particle B
+  // // compute the Newtonian acceleration induced on this cell/particle by Cell/Particle B
+  // std::vector<double> newton_force_ (double mass_b, std::vector<double> displacement) throw()
+  // {
+  //   std::vector<double> accel_vec (3, 0);
+
+  //   double disp_norm = sqrt(dot_11_(displacement, displacement));
+
+  //   double accel_mag = mass_b / (disp_norm * disp_norm);   // how does the code represent G?
+  //   accel_vec = dot_scalar_(accel_mag / disp_norm, displacement, 3);
+
+  //   return accel_vec;
+  // }
+
+  // compute the Newtonian acceleration induced on this cell/particle by Cell/Particle B;
+  // force is softened with gravitational softening length eps0 and cutoff distance r0
   std::vector<double> newton_force_ (double mass_b, std::vector<double> displacement) throw()
   {
     std::vector<double> accel_vec (3, 0);
 
-    double disp_norm = sqrt(dot_11_(displacement, displacement));
+    double disp_norm = sqrt(dot_11_(displacement, displacement));  // norm of displacement vector
+    double eps = epsilon(disp_norm, eps0_, r0_);                   // softening
+    double soft_disp = disp_norm + eps;                            // softened displacement
 
-    double accel_mag = mass_b / (disp_norm * disp_norm);   // how does the code represent G?
-    accel_vec = dot_scalar_(accel_mag / disp_norm, displacement, 3);
+    double accel_mag = mass_b / (soft_disp * soft_disp);   
+    accel_vec = dot_scalar_(accel_mag / soft_disp, displacement, 3);
 
     return accel_vec;
   }
+
+  /* Gravitational softening law from Springel et al. 2013; r is the displacement and eps0 is the softening length. 
+      The softening has a finite range, going to 0 for distances greater than r0 (with r0 being smaller than half the smallest
+      box dimension)  */
+   double epsilon(double r, double eps0, double r0)
+   {
+    if (r >= r0)
+      return 0; 
+      
+    else 
+      return -2.8 * eps0 / W2(r / (2.8 * eps0)) - r; 
+   }
+
+  /* Kernel for gravitational softening (from Springel, Yoshida, White 2001) */
+   double W2(double u)
+   {
+    if ((u >= 0) && (u < 0.5))
+      return 16./3 * pow(u,2) - 48./5 * pow(u,4) + 32./5 * pow(u,5) - 14./5;
+      
+    else if ((u >= 0.5) && (u < 1))
+      return 1./15 * pow(u,-1) + 32./3 * pow(u,2) - 16 * pow(u,3) + 48./5 * pow(u,4) - 32./15 * pow(u,5) - 16./5;
+      
+    else 
+      return -1./u;
+   }
 
 
   /********** functions for dual tree walk **********/
@@ -404,6 +449,12 @@ protected: // attributes
   /// Parameter controlling the multipole acceptance criterion, defined
   /// as theta * distance(A,B) > (radius(A) + radius(B))
   double theta_;
+
+  /// Gravitational softening length
+  double eps0_;
+
+  /// Cutoff distance for gravitational softening
+  double r0_;
 
   // /// Minimum/maximum mesh refinement level (saved for efficiency)
   // int min_level_;
