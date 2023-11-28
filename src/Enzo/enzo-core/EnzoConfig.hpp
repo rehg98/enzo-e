@@ -291,6 +291,9 @@ public: // interface
       method_multipole_theta(0),
       method_multipole_eps0(0),
       method_multipole_r0(0),
+      method_multipole_interp_xpoints(64),
+      method_multipole_interp_ypoints(64),
+      method_multipole_interp_zpoints(64),
       
       // EnzoMethodHydro
       method_hydro_method(""),
@@ -789,6 +792,9 @@ public: // attributes
   double                     method_multipole_theta;
   double                     method_multipole_eps0;
   double                     method_multipole_r0;
+  int                        method_multipole_interp_xpoints;
+  int                        method_multipole_interp_ypoints;
+  int                        method_multipole_interp_zpoints;
   
   /// EnzoMethodHydro
   std::string                method_hydro_method;

@@ -635,7 +635,10 @@ Method * EnzoProblem::create_method_
       (enzo_config->method_multipole_timeStep,
        enzo_config->method_multipole_theta,
        enzo_config->method_multipole_eps0,
-       enzo_config->method_multipole_r0);   
+       enzo_config->method_multipole_r0,
+       enzo_config->method_multipole_interp_xpoints,
+       enzo_config->method_multipole_interp_ypoints,
+       enzo_config->method_multipole_interp_zpoints);   
 
   } else if (name == "heat") {
 

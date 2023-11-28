@@ -231,6 +231,9 @@ EnzoConfig::EnzoConfig() throw ()
   method_multipole_theta(0),
   method_multipole_eps0(0),
   method_multipole_r0(0),
+  method_multipole_interp_xpoints(64),
+  method_multipole_interp_ypoints(64),
+  method_multipole_interp_zpoints(64),
   // EnzoMethodHydro
   method_hydro_method(""),
   method_hydro_dual_energy(false),
@@ -643,6 +646,9 @@ void EnzoConfig::pup (PUP::er &p)
   p | method_multipole_theta;
   p | method_multipole_eps0;
   p | method_multipole_r0;
+  p | method_multipole_interp_xpoints;
+  p | method_multipole_interp_ypoints;
+  p | method_multipole_interp_zpoints;
 
   p | method_hydro_method;
   p | method_hydro_dual_energy;
@@ -1993,6 +1999,15 @@ void EnzoConfig::read_method_multipole_(Parameters * p)
 
   method_multipole_r0 = p->value_float
     ("Method:multipole:r0",0);
+
+  method_multipole_interp_xpoints = p->value_integer
+    ("Method:multipole:interp_xpoints", 64);
+
+  method_multipole_interp_ypoints = p->value_integer
+    ("Method:multipole:interp_ypoints", 64);
+
+  method_multipole_interp_zpoints = p->value_integer
+    ("Method:multipole:interp_zpoints", 64);
 }
 
 //----------------------------------------------------------------------

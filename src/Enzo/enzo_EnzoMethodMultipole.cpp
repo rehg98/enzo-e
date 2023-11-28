@@ -9,11 +9,18 @@
 
 #include "enzo.hpp"
 
+#include "EnzoMethodEwald.hpp"
+
+#include "enzo_EnzoMethodMultipole.hpp"
+
+// class EnzoMethodEwald;
+
 // #include <fstream> // necessary?
 
 //----------------------------------------------------------------------
 
-EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double eps0, double r0)
+EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double eps0, double r0,
+                                          int interp_xpoints, int interp_ypoints, int interp_zpoints)
   : Method(),
     timeStep_(timeStep),
     theta_(theta),
@@ -21,7 +28,11 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
     r0_(r0),
     is_volume_(-1),
     block_volume_(),
-    max_volume_(0)
+    max_volume_(0),
+    interp_xpoints_(64),
+    interp_ypoints_(64),
+    interp_zpoints_(64),
+    ewald_()
 { 
 
   cello::define_field ("density");
@@ -64,6 +75,15 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
   is_volume_ = cello::scalar_descr_long_long()->new_value("solver_fmm_volume");
 
 
+  // Call the constructor of EnzoMethodEwald to set up the interpolation grid
+  // Dimensions of downsampled interpolation grid will be taken as input parameters
+  if (simulation()->problem()->boundary()->is_periodic()) {
+    EnzoMethodEwald ewald_ = new EnzoMethodEwald (interp_xpoints_, interp_ypoints_, interp_zpoints_);
+  }
+  else {
+    EnzoMethodEwald ewald_ = new EnzoMethodEwald ();
+  }
+  
 }
 
 //----------------------------------------------------------------------
@@ -95,6 +115,9 @@ void EnzoMethodMultipole::pup (PUP::er &p)
   p | is_volume_;
   p | block_volume_;
   p | max_volume_;
+  p | interp_xpoints_;
+  p | interp_ypoints_;
+  p | interp_zpoints_;
   
 }
 
@@ -228,6 +251,9 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
                                {10.0, -0.5, 0.0, 0.5, 0, 0, 0}};
     InitializeParticles(block, nprtls, prtls);
   }
+
+
+  // precompute ewald derivative tensors at each cell center?
   
   compute_ (block);
 }
@@ -747,7 +773,7 @@ void EnzoMethodMultipole::unpack_coeffs_
   std::vector<double> com_shift = subtract_(parent_com, this_com, 3);
 
   std::vector<double> shifted_parent_c1_secondterm = dot_12_(com_shift, parent_c2);
-  std::vector<double> shifted_parent_c1_thirdterm = dot_23_(outer_(com_shift, com_shift), dot_scalar_(0.5, parent_c3, 27));
+  std::vector<double> shifted_parent_c1_thirdterm = dot_23_(outer_11_(com_shift, com_shift), dot_scalar_(0.5, parent_c3, 27));
   std::vector<double> shifted_parent_c1 = add_(add_(parent_c1, shifted_parent_c1_secondterm, 3), shifted_parent_c1_thirdterm, 3);
   
   std::vector<double> shifted_parent_c2_secondterm = dot_13_(com_shift, parent_c3);
@@ -927,7 +953,7 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
   }
 }
 
-
+// ewald correction modifies c1, c2, c3 (via derivative tensors) -- do i add these corrections within the loops?
 void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
 {
   Data * data = block->data();
@@ -996,9 +1022,11 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         a[0] = (lo[0] + (ix-gx + 0.5)*hx) - com[0]; 
         a[1] = (lo[1] + (iy-gy + 0.5)*hy) - com[1];
         a[2] = (lo[2] + (iz-gz + 0.5)*hz) - com[2];
+
+        // add ewald correction here? need multipoles?
         
         std::vector<double> second_term = dot_12_(a, c2);
-        std::vector<double> third_term = dot_23_(outer_(a, a), dot_scalar_(0.5, c3, 27));
+        std::vector<double> third_term = dot_23_(outer_11_(a, a), dot_scalar_(0.5, c3, 27));
 
         // how does the code treat G?
         std::vector<double> block_force = add_(subtract_(c1, second_term, 3), third_term, 3);
@@ -1168,9 +1196,11 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         a[0] =  xa[ip*dx] - com[0]; 
         a[1] =  ya[ip*dy] - com[1];
         a[2] =  za[ip*dz] - com[2];
+
+        // add ewald correction here?
         
         std::vector<double> second_term = dot_12_(a, c2);
-        std::vector<double> third_term = dot_23_(outer_(a, a), dot_scalar_(0.5, c3, 27));
+        std::vector<double> third_term = dot_23_(outer_11_(a, a), dot_scalar_(0.5, c3, 27));
 
         // how does the code treat G?
         std::vector<double> block_force = add_(subtract_(c1, second_term, 3), third_term, 3);
@@ -1444,6 +1474,8 @@ void EnzoMethodMultipole::interact_approx_send(EnzoBlock * enzo_block, Index rec
   enzo::block_array()[receiver].p_method_multipole_interact_approx(msg);
 }
 
+/* ewald sum adds extra contribution to d1, d2, d3, but we need a position to evaluate the taylor approximation --
+    so, ignore ewald in this function, but include it in evaluate_force? */
 void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) throw()
 {
   
@@ -1456,20 +1488,27 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
   std::vector<double> com_b (msg_b->com, msg_b->com + 3);
   std::vector<double> quadrupole_b (msg_b->quadrupole, msg_b->quadrupole + 9);
 
+  std::vector<double> rvec (3, 0);
 
-  std::vector<double> rvec = subtract_(com_b, com_a, 3);         // displacement vector between com_b and com_a
+  if (simulation()->problem()->boundary()->is_periodic()) {
+    cello::hierarchy()->get_nearest_periodic_image(com_b, com_a, rvec);
+  }
+  else {
+    rvec = subtract_(com_b, com_a, 3);        // displacement vector between com_b and com_a
+  }
+  
   double r = sqrt(dot_11_(rvec, rvec));                          // magnitude of displacement vector
 
   std::vector<double> d1 = dot_scalar_(-1.0/pow(r,3), rvec, 3);  // derivative tensor d1
   std::vector<double> d2 (9, 0);                                 // derivative tensor d2
   std::vector<double> d3 (27, 0);                                // derivative tensor d3
-       
           
   // compute the components of d2
+  // tensor is symmetric in i and j ==> can just loop over i <= j for second loop
   for (int j = 0; j < 3; j++) {
     for (int i = 0; i < 3; i++) {
 
-      d2[3*i + j] = 3.0/pow(r,5) * rvec[i] * rvec[j];
+      d2[3*i + j] = 3.0/pow(r,5) * rvec[i] * rvec[j]; 
 
       if (i == j) {
         d2[3*i + j] -= 1.0/pow(r,3);
@@ -1498,8 +1537,18 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
       }
     }
   }
-     
-     
+
+  if (simulation()->problem()->boundary()->is_periodic()) {
+    std::vector<double> d1_ewald = ewald_.interp_d1(rvec[0], rvec[1], rvec[2]); // d1 contribution from periodicity
+    std::vector<double> d2_ewald = ewald_.interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
+    std::vector<double> d3_ewald = ewald_.interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
+      
+    // Combine the derivative tensors from the periodic and non-periodic contributions    
+    d1 = add_(d1, d1_ewald, 3);
+    d2 = add_(d2, d2_ewald, 9);
+    d3 = add_(d3, d3_ewald, 27);
+  }
+  
   // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
   std::vector<double> delta_c1 = add_(dot_scalar_(mass_b, d1, 3), dot_23_(quadrupole_b, dot_scalar_(0.5, d3, 27)), 3);
   std::vector<double> delta_c2 = dot_scalar_(mass_b, d2, 9);
@@ -1588,6 +1637,10 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
 
   enzo_block->lower(lo, lo+1, lo+2);
 
+  double * mass = pmass(enzo_block);
+  double * com = pcom(enzo_block);
+  double * quadrupole = pquadrupole(enzo_block);
+
   int fldsize = 0;
 
   SIZE_SCALAR_TYPE(fldsize, int, mx);
@@ -1598,6 +1651,12 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   SIZE_SCALAR_TYPE(fldsize, double, hz);
   SIZE_ARRAY_TYPE(fldsize, double, lo, 3);
   SIZE_ARRAY_TYPE(fldsize, enzo_float, dens, mx*my*mz);
+
+  if (simulation()->problem()->boundary()->is_periodic()) {
+    SIZE_SCALAR_TYPE(fldsize, double, mass);
+    SIZE_ARRAY_TYPE(fldsize, double, com, 3);
+    SIZE_ARRAY_TYPE(fldsize, double, quadrupole, 9);
+  }
 
   char * fldbuffer = new char[fldsize];
 
@@ -1613,6 +1672,11 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   SAVE_ARRAY_TYPE(pc, double, lo, 3);
   SAVE_ARRAY_TYPE(pc, enzo_float, dens, mx*my*mz);
 
+  if (simulation()->problem()->boundary()->is_periodic()) {
+    SAVE_SCALAR_TYPE(pc, double, mass);
+    SAVE_ARRAY_TYPE(pc, double, com, 3);
+    SAVE_ARRAY_TYPE(pc, double, quadrupole, 9);
+  }
 
   int prtsize = particle.data_size();
   char * prtbuffer = new char[prtsize];
@@ -1901,6 +1965,51 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
     }
   }
 
+  // compute long-range contribution from periodic images of Block b 
+  if (simulation()->problem()->boundary()->is_periodic()) {
+
+    double * com_a = pcom(block);
+    std::vector<double> c1_a  (pc1(block), pc1(block) + 3);
+    std::vector<double> c2_a  (pc2(block), pc2(block) + 9);
+    std::vector<double> c3_a  (pc3(block), pc3(block) + 27);
+
+    double mass_b;
+    double * com_b;
+    std::vector<double> quadrupole_b (9, 0);
+
+    LOAD_SCALAR_TYPE(pc, double, mass_b);
+    LOAD_ARRAY_TYPE(pc, double, com_b, 3);
+    LOAD_ARRAY_TYPE(pc, double, quadrupole_b, 9);
+
+    double * rvec;
+    cello::hierarchy()->get_nearest_periodic_image(com_b, com_a, rvec);
+
+    std::vector<double> d1_ewald = ewald_.interp_d1(rvec[0], rvec[1], rvec[2]); // d1 contribution from periodicity
+    std::vector<double> d2_ewald = ewald_.interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
+    std::vector<double> d3_ewald = ewald_.interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
+    
+    // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
+    std::vector<double> delta_c1 = add_(dot_scalar_(mass_b, d1_ewald, 3), dot_23_(quadrupole_b, dot_scalar_(0.5, d3_ewald, 27)), 3);
+    std::vector<double> delta_c2 = dot_scalar_(mass_b, d2_ewald, 9);
+    std::vector<double> delta_c3 = dot_scalar_(mass_b, d3_ewald, 27);
+    
+    // add the coefficients for the new interaction to the coefficients already associated with this Block
+    std::vector<double> new_c1 = add_(c1_a, delta_c1, 3);  
+    std::vector<double> new_c2 = add_(c2_a, delta_c2, 9);
+    std::vector<double> new_c3 = add_(c3_a, delta_c3, 27);
+
+    for (int i = 0; i < 3; i++) {
+      pc1(block)[i] = new_c1[i];
+    }
+
+    for (int i = 0; i < 9; i++) {
+      pc2(block)[i] = new_c2[i];
+    }
+
+    for (int i = 0; i < 27; i++) {
+      pc3(block)[i] = new_c3[i];
+    }
+  }
 
 }
 
@@ -1958,23 +2067,39 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
   enzo_block->upper(ibp3,ibp3+1,ibp3+2,&index_b);
   *ra=0;
   *rb=0;
-  double ra3[3]={0,0,0},rb3[3]={0,0,0},d3[3]={0,0,0};
+  double ra3[3]={0,0,0}, rb3[3]={0,0,0};
+  double ca[3]={0,0,0}, cb[3]={0,0,0};
+  double d3[3]={0,0,0};
   double d = 0;
 
   for (int i=0; i<cello::rank(); i++) {
-    ra3[i] = (iap3[i] - iam3[i]);
-    rb3[i] = (ibp3[i] - ibm3[i]);
-    *ra += ra3[i]*ra3[i];
-    *rb += rb3[i]*rb3[i];
-    double ca = (iam3[i]+0.5*ra3[i]);
-    double cb = (ibm3[i]+0.5*rb3[i]);
-    d3[i] = (ca - cb);
-    d += d3[i]*d3[i];
+    ra3[i] = (iap3[i] - iam3[i]);   // length of side i of Block a
+    rb3[i] = (ibp3[i] - ibm3[i]);   // length of side i of Block b
+    *ra += ra3[i]*ra3[i];           // square of the length of side i of Block a
+    *rb += rb3[i]*rb3[i];           // square of the length of side i of Block b
+
+    ca[i] = (iam3[i]+0.5*ra3[i]);  // i coordinate of center of Block a
+    cb[i] = (ibm3[i]+0.5*rb3[i]);  // i coordinate of center of Block b
+
+    // double ca = (iam3[i]+0.5*ra3[i]);
+    // double cb = (ibm3[i]+0.5*rb3[i]);
+    // d3[i] = (ca - cb); // check if this is the nearest periodic distance
+    // d += d3[i]*d3[i];
   }
 
-  d = sqrt(d);
-  *ra = 0.5*sqrt(*ra);
-  *rb = 0.5*sqrt(*rb);
+  // compute the displacement between the centers of the two Blocks
+  if (simulation()->problem()->boundary()->is_periodic()) {
+    cello::hierarchy()->get_nearest_periodic_image(ca, cb, d3);
+  }
+  else {
+    d3[0] = ca[0] - cb[0];
+    d3[1] = ca[1] - cb[1];
+    d3[2] = ca[2] - cb[2]; 
+  }
+
+  d = sqrt(d3[0]*d3[0] + d3[1]*d3[1] + d3[2]*d3[2]);  // distance between centers of Blocks
+  *ra = 0.5*sqrt(*ra);  // half the length of the diagonal of Block a
+  *rb = 0.5*sqrt(*rb);  // half the length of the diagonal of Block b 
 
   return  (d * theta_ > (*ra + *rb));
 }

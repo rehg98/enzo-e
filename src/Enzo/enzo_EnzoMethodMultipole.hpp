@@ -19,7 +19,8 @@ class EnzoMethodMultipole : public Method {
 public: // interface -- which methods should be public and which protected?
 
   /// Create a new EnzoMethodMultipole object
-  EnzoMethodMultipole(double timeStep, double theta, double eps0, double r0);
+  EnzoMethodMultipole(double timeStep, double theta, double eps0, double r0,
+                      int interp_xpoints, int interp_ypoints, int interp_zpoints);
 
   EnzoMethodMultipole()
     : Method(),
@@ -29,7 +30,11 @@ public: // interface -- which methods should be public and which protected?
       r0_(0),
       is_volume_(-1),
       block_volume_(),
-      max_volume_(0)
+      max_volume_(0),
+      interp_xpoints_(64),
+      interp_ypoints_(64),
+      interp_zpoints_(64),
+      ewald_()
   { }
 
   /// Charm++ PUP::able declarations
@@ -48,7 +53,11 @@ public: // interface -- which methods should be public and which protected?
       r0_(0),
       is_volume_(-1),
       block_volume_(),
-      max_volume_(0)
+      max_volume_(0),
+      interp_xpoints_(64),
+      interp_ypoints_(64),
+      interp_zpoints_(64)
+      // ewald_()
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
 
 
@@ -279,6 +288,7 @@ protected:
   void InitializeParticles (Block * block, int nprtls, double prtls[][7]);
 
 
+public:
   /**********   convenience functions for tensor arithmetic ***********/
 
   // to what extent should i consider replacing std::vectors with std::array? Don't know size for some methods
@@ -306,7 +316,7 @@ protected:
 
   // subtract two arrays
   // any way to do this with arrays? size is not known at compile time
-  std::vector<double> subtract_(std::vector<double> a, std::vector<double> b, int size) throw()
+  static std::vector<double> subtract_(std::vector<double> a, std::vector<double> b, int size) throw()
   {
     // should assert that a and b have size "size"
     std::vector<double> diff (size, 0);
@@ -320,7 +330,7 @@ protected:
   }
 
   // add two arrays
-  std::vector<double> add_(std::vector<double> a, std::vector<double> b, int size) throw()
+  static std::vector<double> add_(std::vector<double> a, std::vector<double> b, int size) throw()
   {
     // should assert that a and b have size "size"
     std::vector<double> sum (size, 0);
@@ -333,11 +343,9 @@ protected:
   }
 
   // compute the outer product of two (3-elements) vectors 
-  std::vector<double> outer_(std::vector<double> a, std::vector<double> b) throw()
+  static std::vector<double> outer_11_(std::vector<double> a, std::vector<double> b) throw()
   {
     // assert that a and b are 3-element vectors 
-    // double * prod = new double[9];
-
     std::vector<double> prod (9, 0);
 
     for (int j = 0; j < 3; j++) {
@@ -349,8 +357,24 @@ protected:
     return prod;
   }
 
+  // compute the outer product of a vector 'a' with a rank-2 tensor 'b'
+  static std::vector<double> outer_12_(std::vector<double> a, std::vector<double> b) throw()
+  {
+    std::vector<double> prod (27, 0);
+
+    for (int k = 0; k < 3; k++) {
+      for (int j = 0; j < 3; j++) {
+        for (int i = 0; i < 3; i++) {
+          prod[9*k + 3*i + j] = a[i] * b[3*j + k];
+        }
+      }
+    }
+
+    return prod;
+  }
+
   // multiply an array by a scalar
-  std::vector<double> dot_scalar_(double a, std::vector<double> b, int size) throw()
+  static std::vector<double> dot_scalar_(double a, std::vector<double> b, int size) throw()
   {
     // double * prod = new double[size];
     std::vector<double> prod (size, 0);
@@ -363,7 +387,7 @@ protected:
   }
 
   // compute the dot product of two vectors
-  double dot_11_(std::vector<double> a, std::vector<double> b) throw()
+  static double dot_11_(std::vector<double> a, std::vector<double> b) throw()
   {
     double prod = 0;
 
@@ -375,7 +399,7 @@ protected:
   }
 
   // compute the dot product of a vector 'a' with a rank-2 tensor 'b'
-  std::vector<double> dot_12_(std::vector<double> a, std::vector<double> b) throw()
+  static std::vector<double> dot_12_(std::vector<double> a, std::vector<double> b) throw()
   {
     // double * prod = new double[3];
     std::vector<double> prod (3, 0);
@@ -390,7 +414,7 @@ protected:
   }
 
   // compute the dot product of a vector 'a' with a rank-3 tensor 'b'
-  std::vector<double> dot_13_(std::vector<double> a, std::vector<double> b) throw()
+  static std::vector<double> dot_13_(std::vector<double> a, std::vector<double> b) throw()
   {
 
     // double * prod = new double[9];
@@ -408,16 +432,163 @@ protected:
 
   }
 
-  // compute the dot product of a rank-2 tensor 'a' with a rank-3 tensor 'b'
-  std::vector<double> dot_23_(std::vector<double> a, std::vector<double> b) throw()
+  // compute the dot product of a rank-1 tensor 'a' with a rank-4 tensor 'b'
+  static std::vector<double> dot_14_(std::vector<double> a, std::vector<double> b) throw()
   {
-    // double * prod = new double[3];
+    std::vector<double> prod (27, 0);
+
+    for (int l = 0; l < 3; l++) {
+      for (int k = 0; k < 3; k++) {
+        for (int j = 0; j < 3; j++) {
+          for (int i = 0; i < 3; i++) {
+            prod[k + 3*(j + 3*l)] += a[i] * b[27*l + 9*k + 3*i + j];
+          }
+        }
+      }
+    }
+
+    return prod;
+  }
+
+  // compute the dot product of a rank-2 tensor 'a' with a rank-2 tensor 'b'
+  // don't really need this (only for d0)
+  static double dot_22_(std::vector<double> a, std::vector<double> b) throw()
+  {
+    double prod = 0;
+    
+    for (int j = 0; j < 3; j++) {
+      for (int i = 0; i < 3; i++) {
+        prod += a[3*i + j] * b[3*i + j];
+      }
+    }
+
+    return prod;
+  }
+
+  // compute the dot product of a rank-2 tensor 'a' with a rank-3 tensor 'b'
+  static std::vector<double> dot_23_(std::vector<double> a, std::vector<double> b) throw()
+  {
     std::vector<double> prod (3, 0);
 
     for (int k = 0; k < 3; k++) {
       for (int j = 0; j < 3; j++) {
         for (int i = 0; i < 3; i++) {
           prod[k] += a[3*i + j] * b[9*k + 3*i + j];
+        }
+      }
+    }
+
+    return prod;
+  }
+
+  // compute the dot product of a rank-2 tensor 'a' with a rank-4 tensor 'b'
+  static std::vector<double> dot_24_(std::vector<double> a, std::vector<double> b) throw()
+  {
+    std::vector<double> prod (9, 0);
+
+    for (int l = 0; l < 3; l++) {
+      for (int k = 0; k < 3; k++) {
+        for (int j = 0; j < 3; j++) {
+          for (int i = 0; i < 3; i++) {
+            prod[j + 3*i] += a[3*i + j] * b[27*l + 9*k + 3*i + j];
+          }
+        }
+      }
+    }
+
+    return prod;
+  }
+
+  // compute the dot product of a rank-2 tensor 'a' with a rank-5 tensor 'b'
+  static std::vector<double> dot_25_(std::vector<double> a, std::vector<double> b) throw()
+  {
+    std::vector<double> prod (27, 0);
+
+    for (int m = 0; m < 3; m++) {
+      for (int l = 0; l < 3; l++) {
+        for (int k = 0; k < 3; k++) {
+          for (int j = 0; j < 3; j++) {
+            for (int i = 0; i < 3; i++) {
+              prod[9*k + 3*i + j] += a[3*i + j] * b[81*m + 27*l + 9*k + 3*i + j];
+            }
+          }
+        }
+      }
+    }
+
+    return prod;
+  }
+
+  // compute the dot product of a rank-3 tensor 'a' with a rank-3 tensor 'b'
+  // don't really need this (only for d0)
+  static double dot_33_(std::vector<double> a, std::vector<double> b) throw()
+  {
+    double prod = 0;
+
+    for (int k = 0; k < 3; k++) {
+      for (int j = 0; j < 3; j++) {
+        for (int i = 0; i < 3; i++) {
+          prod += a[9*k + 3*i + j] * b[9*k + 3*i + j];
+        }
+      }
+    }
+
+    return prod;
+  }
+
+  // compute the dot product of a rank-3 tensor 'a' with a rank-4 tensor 'b'
+  static std::vector<double> dot_34_(std::vector<double> a, std::vector<double> b) throw()
+  {
+    std::vector<double> prod (3, 0);
+
+    for (int l = 0; l < 3; l++) {
+      for (int k = 0; k < 3; k++) {
+        for (int j = 0; j < 3; j++) {
+          for (int i = 0; i < 3; i++) {
+            prod[l] += a[9*k + 3*i + j] * b[27*l + 9*k + 3*i + j];
+          }
+        }
+      }
+    }
+
+    return prod;
+  }
+
+  // compute the dot product of a rank-3 tensor 'a' with a rank-5 tensor 'b'
+  static std::vector<double> dot_35_(std::vector<double> a, std::vector<double> b) throw()
+  {
+    std::vector<double> prod (9, 0);
+
+    for (int m = 0; m < 3; m++) {
+      for (int l = 0; l < 3; l++) {
+        for (int k = 0; k < 3; k++) {
+          for (int j = 0; j < 3; j++) {
+            for (int i = 0; i < 3; i++) {
+              prod[3*l + m] += a[9*k + 3*i + j] * b[81*m + 27*l + 9*k + 3*i + j];
+            }
+          }
+        }
+      }
+    }
+
+    return prod;
+  }
+
+  // compute the dot product of a rank-3 tensor 'a' with a rank-6 tensor 'b'
+  static std::vector<double> dot_36_(std::vector<double> a, std::vector<double> b) throw()
+  {
+    std::vector<double> prod (27, 0);
+    
+    for (int n = 0; n < 3; n++) {
+      for (int m = 0; m < 3; m++) {
+        for (int l = 0; l < 3; l++) {
+          for (int k = 0; k < 3; k++) {
+            for (int j = 0; j < 3; j++) {
+              for (int i = 0; i < 3; i++) {
+                prod[9*n + 3*l + m] += a[9*k + 3*i + j] * b[243*n + 81*m + 27*l + 9*k + 3*i + j];
+              }
+            }
+          }
         }
       }
     }
@@ -470,6 +641,13 @@ protected: // attributes
 
   /// Volume of domain in terms of finest blocks
   long long max_volume_;
+
+  /// dimensions of interpolation grid for periodic Ewald summation
+  int interp_xpoints_;
+  int interp_ypoints_;
+  int interp_zpoints_;
+
+  EnzoMethodEwald::EnzoMethodEwald ewald_;
 
 };
 
