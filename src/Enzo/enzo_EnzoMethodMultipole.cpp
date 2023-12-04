@@ -34,8 +34,8 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
     interp_xpoints_(64),
     interp_ypoints_(64),
     interp_zpoints_(64),
-    ewald_()
-{ 
+    ewald_(nullptr)
+{
 
   cello::define_field ("density");
   cello::define_field ("acceleration_x");
@@ -76,16 +76,18 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
   // Declare long long Block Scalar for volume and save scalar index
   is_volume_ = cello::scalar_descr_long_long()->new_value("solver_fmm_volume");
 
+  if (cello::simulation()->problem()->is_periodic()) {
+    // Call the primary constructor of EnzoMethodEwald that takes the
+    // dimensions of the downsampled interpolation grid as input parameters.
+    // Then copy (or move if the compiler is smart) the result into this->ewald_
+    ewald_ = new EnzoMethodEwald (interp_xpoints_, interp_ypoints_,
+                                  interp_zpoints_);
+  } else {
+    // if the simulation doesn't have periodic boundaries, then we won't need
+    // the interpolation grids.
+    ewald_ = nullptr;
+  }
 
-  // Call the constructor of EnzoMethodEwald to set up the interpolation grid
-  // Dimensions of downsampled interpolation grid will be taken as input parameters
-  if (simulation()->problem()->boundary()->is_periodic()) {
-    ewald_ = new EnzoMethodEwald (interp_xpoints_, interp_ypoints_, interp_zpoints_);
-  }
-  else {
-    ewald_ = new EnzoMethodEwald ();
-  }
-  
 }
 
 //----------------------------------------------------------------------
@@ -121,7 +123,13 @@ void EnzoMethodMultipole::pup (PUP::er &p)
   p | interp_ypoints_;
   p | interp_zpoints_;
 
-  p | ewald_
+  bool ewald_is_nullptr = (ewald_ == nullptr);
+  p | ewald_is_nullptr;
+  if (not ewald_is_nullptr) {
+    if (p.isUnpacking())
+      ewald_ = new EnzoMethodEwald();
+    p | *ewald_;
+  }
   
 }
 
@@ -1494,8 +1502,9 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
 
   std::vector<double> rvec (3, 0);
 
-  if (simulation()->problem()->boundary()->is_periodic()) {
-    cello::hierarchy()->get_nearest_periodic_image(com_b, com_a, rvec);
+  if (cello::simulation()->problem()->is_periodic()) {
+    cello::hierarchy()->get_nearest_periodic_image(com_b.data(), com_a.data(),
+                                                   rvec.data());
   }
   else {
     rvec = subtract_(com_b, com_a, 3);        // displacement vector between com_b and com_a
@@ -1542,10 +1551,10 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
     }
   }
 
-  if (simulation()->problem()->boundary()->is_periodic()) {
-    std::vector<double> d1_ewald = ewald_.interp_d1(rvec[0], rvec[1], rvec[2]); // d1 contribution from periodicity
-    std::vector<double> d2_ewald = ewald_.interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
-    std::vector<double> d3_ewald = ewald_.interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
+  if (cello::simulation()->problem()->is_periodic()) {
+    std::vector<double> d1_ewald = ewald_->interp_d1(rvec[0], rvec[1], rvec[2]); // d1 contribution from periodicity
+    std::vector<double> d2_ewald = ewald_->interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
+    std::vector<double> d3_ewald = ewald_->interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
       
     // Combine the derivative tensors from the periodic and non-periodic contributions    
     d1 = add_(d1, d1_ewald, 3);
@@ -1656,7 +1665,7 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   SIZE_ARRAY_TYPE(fldsize, double, lo, 3);
   SIZE_ARRAY_TYPE(fldsize, enzo_float, dens, mx*my*mz);
 
-  if (simulation()->problem()->boundary()->is_periodic()) {
+  if (cello::simulation()->problem()->is_periodic()) {
     SIZE_SCALAR_TYPE(fldsize, double, mass);
     SIZE_ARRAY_TYPE(fldsize, double, com, 3);
     SIZE_ARRAY_TYPE(fldsize, double, quadrupole, 9);
@@ -1676,7 +1685,7 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   SAVE_ARRAY_TYPE(pc, double, lo, 3);
   SAVE_ARRAY_TYPE(pc, enzo_float, dens, mx*my*mz);
 
-  if (simulation()->problem()->boundary()->is_periodic()) {
+  if (cello::simulation()->problem()->is_periodic()) {
     SAVE_SCALAR_TYPE(pc, double, mass);
     SAVE_ARRAY_TYPE(pc, double, com, 3);
     SAVE_ARRAY_TYPE(pc, double, quadrupole, 9);
@@ -1970,7 +1979,7 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
   }
 
   // compute long-range contribution from periodic images of Block b 
-  if (simulation()->problem()->boundary()->is_periodic()) {
+  if (cello::simulation()->problem()->is_periodic()) {
 
     double * com_a = pcom(block);
     std::vector<double> c1_a  (pc1(block), pc1(block) + 3);
@@ -1988,9 +1997,9 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
     double * rvec;
     cello::hierarchy()->get_nearest_periodic_image(com_b, com_a, rvec);
 
-    std::vector<double> d1_ewald = ewald_.interp_d1(rvec[0], rvec[1], rvec[2]); // d1 contribution from periodicity
-    std::vector<double> d2_ewald = ewald_.interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
-    std::vector<double> d3_ewald = ewald_.interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
+    std::vector<double> d1_ewald = ewald_->interp_d1(rvec[0], rvec[1], rvec[2]); // d1 contribution from periodicity
+    std::vector<double> d2_ewald = ewald_->interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
+    std::vector<double> d3_ewald = ewald_->interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
     
     // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
     std::vector<double> delta_c1 = add_(dot_scalar_(mass_b, d1_ewald, 3), dot_23_(quadrupole_b, dot_scalar_(0.5, d3_ewald, 27)), 3);
@@ -2092,7 +2101,7 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
   }
 
   // compute the displacement between the centers of the two Blocks
-  if (simulation()->problem()->boundary()->is_periodic()) {
+  if (cello::simulation()->problem()->is_periodic()) {
     cello::hierarchy()->get_nearest_periodic_image(ca, cb, d3);
   }
   else {

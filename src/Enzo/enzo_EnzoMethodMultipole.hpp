@@ -36,12 +36,12 @@ public: // interface -- which methods should be public and which protected?
       interp_xpoints_(64),
       interp_ypoints_(64),
       interp_zpoints_(64),
-      ewald_()
+      ewald_(nullptr)
   { }
 
   /// Charm++ PUP::able declarations
   PUPable_decl(EnzoMethodMultipole);
-  
+
   /// Charm++ PUP::able migration constructor
   EnzoMethodMultipole (CkMigrateMessage *m)
     : Method (m),
@@ -58,15 +58,20 @@ public: // interface -- which methods should be public and which protected?
       max_volume_(0),
       interp_xpoints_(64),
       interp_ypoints_(64),
-      interp_zpoints_(64)
-      ewald_()
+      interp_zpoints_(64),
+      ewald_(nullptr)
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
-
-
 
   /// CHARM++ Pack / Unpack function
   void pup (PUP::er &p);
-     
+
+  ~EnzoMethodMultipole()
+  {
+    if (ewald_ != nullptr) {
+      delete ewald_;
+    }
+  }
+
   /// Apply the method to advance a block one timestep 
   virtual void compute( Block * block) throw();
 

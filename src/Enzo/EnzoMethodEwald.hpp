@@ -23,18 +23,29 @@ public:
 
   EnzoMethodEwald()
     : d0_array_(), // Nx x Ny x Nz x 1 (on down-sampled grid of dimension Nx x Ny x Nz)
-    d1_array_(), // Nx x Ny x Nz x 3
-    d2_array_(), // Nx x Ny x Nz x 9
-    d3_array_(), // Nx x Ny x Nz x 27
-    d4_array_(), // Nx x Ny x Nz x 81
-    d5_array_(), // Nx x Ny x Nz x 243
-    d6_array_(), // Nx x Ny x Nz x 729
-    interp_xpoints_(64),  // number of interpolation points in the x-direction
-    interp_ypoints_(64),  // number of interpolation points in the y-direction
-    interp_zpoints_(64)   // number of interpolation points in the z-direction
-
+      d1_array_(), // Nx x Ny x Nz x 3
+      d2_array_(), // Nx x Ny x Nz x 9
+      d3_array_(), // Nx x Ny x Nz x 27
+      d4_array_(), // Nx x Ny x Nz x 81
+      d5_array_(), // Nx x Ny x Nz x 243
+      d6_array_(), // Nx x Ny x Nz x 729
+      interp_xpoints_(64),  // number of interpolation points in the x-direction
+      interp_ypoints_(64),  // number of interpolation points in the y-direction
+      interp_zpoints_(64)   // number of interpolation points in the z-direction
   { }
 
+  void pup(PUP::er &p) {
+    p | d0_array_;
+    p | d1_array_;
+    p | d2_array_;
+    p | d3_array_;
+    p | d4_array_;
+    p | d5_array_;
+    p | d6_array_;
+    p | interp_xpoints_;
+    p | interp_ypoints_;
+    p | interp_zpoints_;
+  }
 
   void init_interpolate_() throw();
 
