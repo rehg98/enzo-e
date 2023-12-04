@@ -56,15 +56,13 @@ public: // interface -- which methods should be public and which protected?
       max_volume_(0),
       interp_xpoints_(64),
       interp_ypoints_(64),
-      interp_zpoints_(64)
-      // ewald_()
+      interp_zpoints_(64),
+      ewald_()
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
-
-
 
   /// CHARM++ Pack / Unpack function
   void pup (PUP::er &p);
-     
+
   /// Apply the method to advance a block one timestep 
   virtual void compute( Block * block) throw();
 
@@ -647,7 +645,7 @@ protected: // attributes
   int interp_ypoints_;
   int interp_zpoints_;
 
-  EnzoMethodEwald::EnzoMethodEwald ewald_;
+  EnzoMethodEwald ewald_;
 
 };
 

@@ -286,6 +286,7 @@ extern "C" {
 #include "gravity/matrix/EnzoMatrixLaplace.hpp"
 
 #include "enzo_EnzoMethodHello.hpp"
+#include "EnzoMethodEwald.hpp"
 #include "enzo_EnzoMethodMultipole.hpp"	
 
 #include "enzo-core/EnzoMsgCheck.hpp"
