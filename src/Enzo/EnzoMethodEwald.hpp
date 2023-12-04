@@ -9,7 +9,7 @@
 #ifndef ENZO_METHOD_EWALD_HPP
 #define ENZO_METHOD_EWALD_HPP
 
-class EnzoMethodEwald : public Method {
+class EnzoMethodEwald {
 
   /// @class    EnzoMethodEwald
   /// @ingroup  Enzo
@@ -22,8 +22,7 @@ public:
   EnzoMethodEwald (int interp_xpoints, int interp_ypoints, int interp_zpoints);
 
   EnzoMethodEwald()
-    : Method(),
-    d0_array_(), // Nx x Ny x Nz x 1 (on down-sampled grid of dimension Nx x Ny x Nz)
+    : d0_array_(), // Nx x Ny x Nz x 1 (on down-sampled grid of dimension Nx x Ny x Nz)
     d1_array_(), // Nx x Ny x Nz x 3
     d2_array_(), // Nx x Ny x Nz x 9
     d3_array_(), // Nx x Ny x Nz x 27

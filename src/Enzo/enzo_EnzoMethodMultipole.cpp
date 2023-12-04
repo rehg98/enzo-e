@@ -3,7 +3,9 @@
 /// @file     enzo_EnzoMethodMultipole.cpp
 /// @author   Ryan Golant (ryan.golant@columbia.edu)
 /// @date     July 19, 2022
-/// @brief    Compute multipoles and pass multipoles up octree
+/// @brief    Compute accelerations on gas and particles using FMM
+
+// EnzoMethodEwald ewald_;
 
 #include "cello.hpp"
 
@@ -13,7 +15,7 @@
 
 #include "enzo_EnzoMethodMultipole.hpp"
 
-// class EnzoMethodEwald;
+
 
 // #include <fstream> // necessary?
 
@@ -78,10 +80,10 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
   // Call the constructor of EnzoMethodEwald to set up the interpolation grid
   // Dimensions of downsampled interpolation grid will be taken as input parameters
   if (simulation()->problem()->boundary()->is_periodic()) {
-    EnzoMethodEwald ewald_ = new EnzoMethodEwald (interp_xpoints_, interp_ypoints_, interp_zpoints_);
+    ewald_ = new EnzoMethodEwald (interp_xpoints_, interp_ypoints_, interp_zpoints_);
   }
   else {
-    EnzoMethodEwald ewald_ = new EnzoMethodEwald ();
+    ewald_ = new EnzoMethodEwald ();
   }
   
 }
@@ -118,6 +120,8 @@ void EnzoMethodMultipole::pup (PUP::er &p)
   p | interp_xpoints_;
   p | interp_ypoints_;
   p | interp_zpoints_;
+
+  p | ewald_
   
 }
 

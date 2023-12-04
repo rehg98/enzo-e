@@ -4,10 +4,12 @@
 /// @author   Ryan Golant (ryan.golant@columbia.edu) 
 /// @date     Tuesday July 19, 2022
 /// @brief    [\ref Enzo] Declaration of EnzoMethodMultipole
-///           Compute multipoles and pass multipoles up octree
+/// Compute accelerations on gas and particles using FMM
 
 #ifndef ENZO_ENZO_METHOD_MULTIPOLE_HPP
 #define ENZO_ENZO_METHOD_MULTIPOLE_HPP
+
+#include "EnzoMethodEwald.hpp"
 
 class EnzoMethodMultipole : public Method {
 
@@ -57,7 +59,7 @@ public: // interface -- which methods should be public and which protected?
       interp_xpoints_(64),
       interp_ypoints_(64),
       interp_zpoints_(64)
-      // ewald_()
+      ewald_()
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
 
 
@@ -647,7 +649,7 @@ protected: // attributes
   int interp_ypoints_;
   int interp_zpoints_;
 
-  EnzoMethodEwald::EnzoMethodEwald ewald_;
+  EnzoMethodEwald * ewald_;
 
 };
 
