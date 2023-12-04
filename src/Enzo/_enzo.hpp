@@ -287,7 +287,7 @@ extern "C" {
 
 #include "enzo_EnzoMethodHello.hpp"
 #include "EnzoMethodEwald.hpp"
-#include "enzo_EnzoMethodMultipole.hpp"	
+#include "enzo_EnzoMethodMultipole.hpp"
 
 #include "enzo-core/EnzoMsgCheck.hpp"
 

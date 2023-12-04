@@ -34,6 +34,18 @@ public:
       interp_zpoints_(64)   // number of interpolation points in the z-direction
   { }
 
+  void pup(PUP::er &p) {
+    p | d0_array_;
+    p | d1_array_;
+    p | d2_array_;
+    p | d3_array_;
+    p | d4_array_;
+    p | d5_array_;
+    p | d6_array_;
+    p | interp_xpoints_;
+    p | interp_ypoints_;
+    p | interp_zpoints_;
+  }
 
   void init_interpolate_() throw();
 

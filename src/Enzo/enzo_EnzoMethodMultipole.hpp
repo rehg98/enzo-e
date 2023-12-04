@@ -4,10 +4,12 @@
 /// @author   Ryan Golant (ryan.golant@columbia.edu) 
 /// @date     Tuesday July 19, 2022
 /// @brief    [\ref Enzo] Declaration of EnzoMethodMultipole
-///           Compute multipoles and pass multipoles up octree
+/// Compute accelerations on gas and particles using FMM
 
 #ifndef ENZO_ENZO_METHOD_MULTIPOLE_HPP
 #define ENZO_ENZO_METHOD_MULTIPOLE_HPP
+
+#include "EnzoMethodEwald.hpp"
 
 class EnzoMethodMultipole : public Method {
 
@@ -34,12 +36,12 @@ public: // interface -- which methods should be public and which protected?
       interp_xpoints_(64),
       interp_ypoints_(64),
       interp_zpoints_(64),
-      ewald_()
+      ewald_(nullptr)
   { }
 
   /// Charm++ PUP::able declarations
   PUPable_decl(EnzoMethodMultipole);
-  
+
   /// Charm++ PUP::able migration constructor
   EnzoMethodMultipole (CkMigrateMessage *m)
     : Method (m),
@@ -57,11 +59,18 @@ public: // interface -- which methods should be public and which protected?
       interp_xpoints_(64),
       interp_ypoints_(64),
       interp_zpoints_(64),
-      ewald_()
+      ewald_(nullptr)
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
 
   /// CHARM++ Pack / Unpack function
   void pup (PUP::er &p);
+
+  ~EnzoMethodMultipole()
+  {
+    if (ewald_ != nullptr) {
+      delete ewald_;
+    }
+  }
 
   /// Apply the method to advance a block one timestep 
   virtual void compute( Block * block) throw();
@@ -645,7 +654,7 @@ protected: // attributes
   int interp_ypoints_;
   int interp_zpoints_;
 
-  EnzoMethodEwald ewald_;
+  EnzoMethodEwald * ewald_;
 
 };
 

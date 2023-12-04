@@ -233,7 +233,8 @@ EnzoConfig::EnzoConfig() throw ()
   method_multipole_r0(0),
   method_multipole_interp_xpoints(64),
   method_multipole_interp_ypoints(64),
-  method_multipole_interp_zpoints(64),
+  method_multipole_interp_zpoints(64),  
+
   // EnzoMethodHydro
   method_hydro_method(""),
   method_hydro_dual_energy(false),
@@ -2009,6 +2010,7 @@ void EnzoConfig::read_method_multipole_(Parameters * p)
   method_multipole_interp_zpoints = p->value_integer
     ("Method:multipole:interp_zpoints", 64);
 }
+
 
 //----------------------------------------------------------------------
 
