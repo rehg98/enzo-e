@@ -13,44 +13,71 @@
 
 #include "enzo_EnzoMethodMultipole.hpp"
 
+#include "charm_simulation.hpp"
+#include "charm_mesh.hpp"
+#include "main.hpp"
+
 
 EnzoMethodEwald::EnzoMethodEwald (int interp_xpoints, int interp_ypoints, int interp_zpoints)
-  : d0_array_(), // Nx x Ny x Nz x 1 (on down-sampled grid of dimension Nx x Ny x Nz)
-    d1_array_(), // Nx x Ny x Nz x 3
-    d2_array_(), // Nx x Ny x Nz x 9
-    d3_array_(), // Nx x Ny x Nz x 27
-    d4_array_(), // Nx x Ny x Nz x 81
-    d5_array_(), // Nx x Ny x Nz x 243
-    d6_array_(), // Nx x Ny x Nz x 729
+  : d0_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 1 (on down-sampled grid of dimension Nx x Ny x Nz)
+    d1_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 3
+    d2_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 9
+    d3_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 27
+    d4_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 81
+    d5_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 243
+    d6_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 729
     interp_xpoints_(interp_xpoints),  // number of interpolation points in the x-direction
     interp_ypoints_(interp_ypoints),  // number of interpolation points in the y-direction
     interp_zpoints_(interp_zpoints)   // number of interpolation points in the z-direction
+    // is_init_(0)  // flag indicating whether interpolation arrays have been initialized
 
 { 
 
-  // EnzoMethodEwald constructor is called in constructor of EnzoMethodMultipole
+  // EnzoMethodEwald constructor is called in *compute* of EnzoMethodMultipole
 
-  int interp_totpoints = interp_xpoints_ * interp_ypoints_ * interp_zpoints_;
-  std::vector<double> d0_array_ (interp_totpoints);  // d0 is not necessary
-  std::vector<std::vector<double>> d1_array_ (interp_totpoints);
-  std::vector<std::vector<double>> d2_array_ (interp_totpoints);
-  std::vector<std::vector<double>> d3_array_ (interp_totpoints);
-  std::vector<std::vector<double>> d4_array_ (interp_totpoints);
-  std::vector<std::vector<double>> d5_array_ (interp_totpoints);
-  std::vector<std::vector<double>> d6_array_ (interp_totpoints);
+  // CkPrintf("are we in the ewald constructor?\n");
+
+  // int interp_totpoints = interp_xpoints_ * interp_ypoints_ * interp_zpoints_;
+
+  // // eventually turn these into std::arrays of std::arrays
+  // // arrays are all 1D collections of tensors
+  // d0_array_ (interp_totpoints);  // d0 is not necessary
+  // CkPrintf("d0 array sample: %f\n", d0_array_[34]);
+  // d1_array_ (interp_totpoints);
+  // d2_array_ (interp_totpoints);
+  // d3_array_ (interp_totpoints);
+  // d4_array_ (interp_totpoints);
+  // d5_array_ (interp_totpoints);
+  // d6_array_ (interp_totpoints);
+  // // std::vector<std::vector<double>> d6_array_ (interp_totpoints);
+
+  CkPrintf("instantiated the interpolation arrays \n");
 
   init_interpolate_();
+
+  CkPrintf("after init interpolate\n");
 
 }
 
 // set up interpolation arrays on the primary domain
 void EnzoMethodEwald::init_interpolate_() throw()
 {
+  Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+
+  // int max_level_ = hierarchy->max_level();
+  // CkPrintf("max_level\n");
 
   double lox, loy, loz; 
   double hix, hiy, hiz;
-  cello::hierarchy()->lower(&lox, &loy, &loz);
-  cello::hierarchy()->upper(&hix, &hiy, &hiz);
+  
+  hierarchy->lower(&lox, &loy, &loz);
+  hierarchy->upper(&hix, &hiy, &hiz);
+
+  // cello::hierarchy()->lower(&lox, &loy);
+  // cello::hierarchy()->upper(&hix, &hiy);
+
+  // double lox = -0.5; double loy = -0.5; double loz = 0.5;
+  // double hix = 0.5; double hiy = 0.5; double hiz = 0.5;
 
   double dx = (hix - lox) / interp_xpoints_;
   double dy = (hiy - loy) / interp_ypoints_;
@@ -61,19 +88,30 @@ void EnzoMethodEwald::init_interpolate_() throw()
       for (int ix = 0; ix < interp_xpoints_; ix++) {
         
         int i = ix + interp_xpoints_ * (iy + iz * interp_ypoints_);
+        // CkPrintf("i: %d \n", i);
         double x = lox + (ix + 0.5)*dx;  // do I want interp points to be at cell centers or at grid points?
         double y = loy + (iy + 0.5)*dy;
         double z = loz + (iz + 0.5)*dz; 
 
-        d0_array_[i] = d0(x, y, z);   // d0 is not necessary
+        //CkPrintf("before trying to populate d0 array\n");
+        double d0_val = d0(x,y,z);
+        //CkPrintf("d0:%f \n", d0_val);
+        d0_array_[i] = d0_val;   // d0 is not necessary
 
-        std::vector<double> D1 = d1(x, y, z);
-        std::vector<double> D1_array = d1_array_[i];
-        for (int j = 0; j < 3; j++) {
-          D1_array[j] = D1[j];
-        }
+        //CkPrintf("after trying to popular d0 array\n");
+
+        // std::vector<double> D1 = d1(x, y, z);
+        //std::vector<double> D1_array = d1_array_[i];
+        d1_array_[i] = d1(x, y, z);
+        // for (int j = 0; j < 3; j++) {
+        //   D1_array[j] = D1[j];
+        // }
+
+        //CkPrintf("we're probably seg-faulting after this\n");
 
         d2_array_[i] = d2(x, y, z);
+
+        //CkPrintf("tried to initialize d2 array \n");
 
         d3_array_[i] = d3(x, y, z);
 
@@ -86,6 +124,8 @@ void EnzoMethodEwald::init_interpolate_() throw()
     }
   }
 
+  // is_init_ = 1;
+
 }
 
 
@@ -94,9 +134,15 @@ void EnzoMethodEwald::init_interpolate_() throw()
 
 
 // compute the Taylor series to interpolate derivative tensors from interpolation points to (x,y,z).
-// this function is not necessary
+// Note: this function is not necessary, since our Taylor series start at d1
 double EnzoMethodEwald::interp_d0(double x, double y, double z) throw()
 {
+
+  // // if the interpolation arrays haven't been initialized, initialize them
+  // if (!is_init_) {
+  //   init_interpolate_();
+  // }
+  
 
   int i;
   double interp_x, interp_y, interp_z;
@@ -124,6 +170,12 @@ double EnzoMethodEwald::interp_d0(double x, double y, double z) throw()
 
 std::vector<double> EnzoMethodEwald::interp_d1(double x, double y, double z) throw()
 {
+
+  // // if the interpolation arrays haven't been initialized, initialize them
+  // if (!is_init_) {
+  //   init_interpolate_();
+  // }
+
   int i;
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
@@ -155,6 +207,12 @@ std::vector<double> EnzoMethodEwald::interp_d1(double x, double y, double z) thr
 
 std::vector<double> EnzoMethodEwald::interp_d2(double x, double y, double z) throw()
 {
+
+  // // if the interpolation arrays haven't been initialized, initialize them
+  // if (!is_init_) {
+  //   init_interpolate_();
+  // }
+
   int i;
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
@@ -186,6 +244,11 @@ std::vector<double> EnzoMethodEwald::interp_d2(double x, double y, double z) thr
 
 std::vector<double> EnzoMethodEwald::interp_d3(double x, double y, double z) throw()
 {
+
+  // // if the interpolation arrays haven't been initialized, initialize them
+  // if (!is_init_) {
+  //   init_interpolate_();
+  // }
 
   int i;
   double interp_x, interp_y, interp_z;
@@ -225,6 +288,8 @@ std::vector<double> EnzoMethodEwald::interp_d3(double x, double y, double z) thr
 double EnzoMethodEwald::d0(double x, double y, double z) throw()
 {
   /* d0 = g0 */
+
+  // CkPrintf("we're in d0\n");
 
   double d0_counter = 0;
 
@@ -291,7 +356,10 @@ double EnzoMethodEwald::d0(double x, double y, double z) throw()
   // additional pi/(alpha^2 V) term, only for d0
   d0_counter += M_PI/(alpha2 * box_vol);
 
+  // CkPrintf("made it to end of d0\n");
   return d0_counter;
+
+  
 }
 
 // compute the d1 term of the Ewald sum at coordinates (x, y, z)

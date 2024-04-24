@@ -31,9 +31,9 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
     is_volume_(-1),
     block_volume_(),
     max_volume_(0),
-    interp_xpoints_(64),
-    interp_ypoints_(64),
-    interp_zpoints_(64),
+    interp_xpoints_(interp_xpoints),
+    interp_ypoints_(interp_ypoints),
+    interp_zpoints_(interp_zpoints),
     ewald_(nullptr)
 {
 
@@ -72,21 +72,31 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
   i_c2_ = scalar_descr_double->new_value("multipole:c2", 9);
   i_c3_ = scalar_descr_double->new_value("multipole:c3", 27);
 
-
+  
   // Declare long long Block Scalar for volume and save scalar index
   is_volume_ = cello::scalar_descr_long_long()->new_value("solver_fmm_volume");
 
-  if (cello::simulation()->problem()->is_periodic()) {
-    // Call the primary constructor of EnzoMethodEwald that takes the
-    // dimensions of the downsampled interpolation grid as input parameters.
-    // Then copy (or move if the compiler is smart) the result into this->ewald_
-    ewald_ = new EnzoMethodEwald (interp_xpoints_, interp_ypoints_,
-                                  interp_zpoints_);
-  } else {
-    // if the simulation doesn't have periodic boundaries, then we won't need
-    // the interpolation grids.
-    ewald_ = nullptr;
-  }
+
+
+  // if (cello::simulation()->problem()->is_periodic()) {
+  //   // Call the primary constructor of EnzoMethodEwald that takes the
+  //   // dimensions of the downsampled interpolation grid as input parameters.
+  //   // Then copy (or move if the compiler is smart) the result into this->ewald_
+
+  //   CkPrintf("are we here?\n");
+
+  //   //   Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+
+  //   // int max_level_ = hierarchy->max_level();
+  //   // CkPrintf("max_level:%d\n", max_level_);
+
+  //   ewald_ = new EnzoMethodEwald (interp_xpoints_, interp_ypoints_,
+  //                                 interp_zpoints_);
+  // } else {
+  //   // if the simulation doesn't have periodic boundaries, then we won't need
+  //   // the interpolation grids.
+  //   ewald_ = nullptr;
+  // }
 
 }
 
@@ -137,7 +147,8 @@ void EnzoMethodMultipole::pup (PUP::er &p)
 
 void EnzoMethodMultipole::compute ( Block * block) throw()
 {
-
+  CkPrintf("made it to compute\n");
+  
   Sync * sync_restrict = psync_restrict(block);
   //Sync * sync_prolong = psync_prolong(block);
   sync_restrict->set_stop(1 + cello::num_children());
@@ -250,19 +261,39 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
 
   *volume_(block) = 0;
 
-
+  // if (block->is_leaf())
   if (block->is_leaf()) {
 
     // CkPrintf("a leaf in compute\n");
 
-    int nprtls = 4;
+    int nprtls = 2;
     // mass, x, y, z, ax, ay, az
-    double prtls[nprtls][7] = {{1.0, 0.3, 0.3, 0.5, 0, 0, 0},
-                               {1.0, -0.3, -0.42, 0.5, 0, 0, 0},
-                               {0.5, 0.35, 0.45, 0.5, 0, 0, 0},
-                               {10.0, -0.5, 0.0, 0.5, 0, 0, 0}};
+    double prtls[nprtls][7] = {{10.0, 0.0, 0.0, 0.5, 0, 0, 0},
+                               {0.0, 0.01, 0.01, 0.5, 0, 0, 0}};
+
+    //double prtls[nprtls][7] = {{10.0, 0.0, 0.0, 0.5, 0, 0, 0}};
+
+    // double prtls[nprtls][7] = {{0.0, 0.01, 0.01, 0.0, 0, 0, 0}};
+                               
     InitializeParticles(block, nprtls, prtls);
   }
+
+
+  int is_periodic_x; int is_periodic_y; int is_periodic_z;
+  cello::hierarchy()->get_periodicity(&is_periodic_x, &is_periodic_y, &is_periodic_z);
+
+  if ((ewald_ == nullptr) && (is_periodic_x || is_periodic_y || is_periodic_z)) {
+    // Call the primary constructor of EnzoMethodEwald that takes the
+    // dimensions of the downsampled interpolation grid as input parameters.
+    // Then copy (or move if the compiler is smart) the result into this->ewald_
+
+    CkPrintf("are we here?\n");
+
+    ewald_ = new EnzoMethodEwald (interp_xpoints_, interp_ypoints_,
+                                  interp_zpoints_);
+
+    CkPrintf("are we here?\n");
+  } 
 
 
   // precompute ewald derivative tensors at each cell center?
@@ -462,7 +493,10 @@ void EnzoMethodMultipole::begin_down_cycle_(EnzoBlock * enzo_block) throw()
 
   const int level = enzo_block->level();
 
+  // not just if max_level = 0 -- need to check if the number of levels is 0
   if (cello::hierarchy()->max_level() == 0) { 
+
+    // need ewald_ stuff here?
 
     // loop over all root blocks and compute direct interactions
 
@@ -485,6 +519,7 @@ void EnzoMethodMultipole::begin_down_cycle_(EnzoBlock * enzo_block) throw()
           else {
             
             // compute the a->b interaction
+
             pack_dens_(enzo_block, other_ind);
             
           }
@@ -965,7 +1000,7 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
   }
 }
 
-// ewald correction modifies c1, c2, c3 (via derivative tensors) -- do i add these corrections within the loops?
+// ewald correction modifies c1, c2, c3 (via derivative tensors) 
 void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
 {
   Data * data = block->data();
@@ -1017,10 +1052,54 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
   enzo_float * prtmass2 = NULL;
   int dm2;
 
+  double mass = *pmass(block);
   std::vector<double> com (pcom(block), pcom(block) + 3);
+  std::vector<double> quadrupole (pquadrupole(block), pquadrupole(block) + 9);
+  
   std::vector<double> c1 (pc1(block), pc1(block) + 3);
   std::vector<double> c2 (pc2(block), pc2(block) + 9);
   std::vector<double> c3 (pc3(block), pc3(block) + 27);
+
+
+  // compute long-range contribution from periodic images of this Block 
+  CkPrintf("is ewald_ a nullptr in evaluate_force? %d\n", ewald_ != nullptr);
+  if (ewald_ != nullptr) {
+
+    CkPrintf("ewald in evaluate_force\n");
+
+    
+    std::vector<double> d1_ewald = ewald_->interp_d1(0, 0, 0); // d1 contribution from periodicity
+    std::vector<double> d2_ewald = ewald_->interp_d2(0, 0, 0); // d2 contribution from periodicity
+    std::vector<double> d3_ewald = ewald_->interp_d3(0, 0, 0); // d3 contribution from periodicity
+
+    CkPrintf("d1_ewald in evaluate_force: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
+    
+    // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
+    std::vector<double> delta_c1 = add_(dot_scalar_(mass, d1_ewald, 3), dot_23_(quadrupole, dot_scalar_(0.5, d3_ewald, 27)), 3);
+    std::vector<double> delta_c2 = dot_scalar_(mass, d2_ewald, 9);
+    std::vector<double> delta_c3 = dot_scalar_(mass, d3_ewald, 27);
+
+    CkPrintf("delta_c1 in evaluate_force: %f, %f, %f\n", delta_c1[0], delta_c1[1], delta_c1[2]);
+    
+    // add the coefficients for the new interaction to the coefficients already associated with this Block
+    std::vector<double> new_c1 = add_(c1, delta_c1, 3);  
+    std::vector<double> new_c2 = add_(c2, delta_c2, 9);
+    std::vector<double> new_c3 = add_(c3, delta_c3, 27);
+
+    for (int i = 0; i < 3; i++) {
+      c1[i] = new_c1[i];
+    }
+
+    for (int i = 0; i < 9; i++) {
+      c2[i] = new_c2[i];
+    }
+
+    for (int i = 0; i < 27; i++) {
+      c3[i] = new_c3[i];
+    }
+  }
+
+  
   
   // loop over all cells
   for (int iz = gz; iz < mz-gz; iz++) {
@@ -1034,8 +1113,6 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         a[0] = (lo[0] + (ix-gx + 0.5)*hx) - com[0]; 
         a[1] = (lo[1] + (iy-gy + 0.5)*hy) - com[1];
         a[2] = (lo[2] + (iz-gz + 0.5)*hz) - com[2];
-
-        // add ewald correction here? need multipoles?
         
         std::vector<double> second_term = dot_12_(a, c2);
         std::vector<double> third_term = dot_23_(outer_11_(a, a), dot_scalar_(0.5, c3, 27));
@@ -1209,7 +1286,6 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         a[1] =  ya[ip*dy] - com[1];
         a[2] =  za[ip*dz] - com[2];
 
-        // add ewald correction here?
         
         std::vector<double> second_term = dot_12_(a, c2);
         std::vector<double> third_term = dot_23_(outer_11_(a, a), dot_scalar_(0.5, c3, 27));
@@ -1339,6 +1415,9 @@ void EnzoBlock::p_method_multipole_traverse(Index index, int type)
 void EnzoMethodMultipole::traverse
 (EnzoBlock * enzo_block, Index index_b, int type_b)
 {
+
+  CkPrintf("in traverse?\n");
+
   Index index_a = enzo_block->index();
   const bool known_leaf_b = (type_b != -1);
   const bool is_leaf_a = enzo_block->is_leaf();
@@ -1352,7 +1431,9 @@ void EnzoMethodMultipole::traverse
 
   // Determine if blocks are "far", and save radii for later
   double ra,rb;
+  CkPrintf("before is far\n");
   bool mac = is_far_(enzo_block,index_b,&ra,&rb);
+  CkPrintf("mac: %d\n", mac);
 
   // is_leaf values: 0 no, 1 yes -1 unknown
   const bool is_leaf_b = (type_b == 1);
@@ -1366,7 +1447,10 @@ void EnzoMethodMultipole::traverse
   int volume_a = block_volume_[level_a];
   int volume_b = block_volume_[level_b];
 
+
+  // this stalls if max_level > 0 but there's no refinement
   if (index_a == index_b) {
+    CkPrintf("root double loop\n");
 
     // loop 1 through A children
     while (it_child_a.next(ica3)) {
@@ -1379,6 +1463,8 @@ void EnzoMethodMultipole::traverse
         Index index_b_child = index_b.index_child(icb3, 0);
         // avoid calling both traverse (A,B) and traverse (B,A)
 
+        // CkPrintf("%f, %f\n", ica, icb);
+
         if (ica <= icb) {  
           // call traverse on child 1 and child 2
           enzo::block_array()[index_a_child].p_method_multipole_traverse
@@ -1390,12 +1476,16 @@ void EnzoMethodMultipole::traverse
 
   else if (is_leaf_a && is_leaf_b) {
 
+    CkPrintf("two leafs\n");
+
     // interact
     traverse_direct_pair (enzo_block,index_a,volume_a,index_b,volume_b);
 
   }
 
   else if (mac) {
+
+    CkPrintf("mac satisfied\n");
 
     // interact
     traverse_approx_pair (enzo_block,index_a,volume_a,index_b,volume_b);
@@ -1451,6 +1541,7 @@ void EnzoMethodMultipole::traverse_approx_pair
  Index index_a, int volume_a,
  Index index_b, int volume_b)
 {
+  CkPrintf("in traverse approx pair\n");
 
   // compute the a->b interaction
   MultipoleMsg * msg_a = pack_multipole_(enzo_block);
@@ -1486,8 +1577,7 @@ void EnzoMethodMultipole::interact_approx_send(EnzoBlock * enzo_block, Index rec
   enzo::block_array()[receiver].p_method_multipole_interact_approx(msg);
 }
 
-/* ewald sum adds extra contribution to d1, d2, d3, but we need a position to evaluate the taylor approximation --
-    so, ignore ewald in this function, but include it in evaluate_force? */
+/* ewald sum adds extra contribution to d1, d2, d3 */
 void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) throw()
 {
   
@@ -1502,9 +1592,19 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
 
   std::vector<double> rvec (3, 0);
 
-  if (cello::simulation()->problem()->is_periodic()) {
+  CkPrintf("is ewald_ a nullptr in interact_approx? %d\n", ewald_ != nullptr);
+  if (ewald_ != nullptr) {
+    double b_image[3];
+
     cello::hierarchy()->get_nearest_periodic_image(com_b.data(), com_a.data(),
-                                                   rvec.data());
+                                                   b_image);
+    rvec[0] = b_image[0] - com_a[0];
+    rvec[1] = b_image[1] - com_a[1];
+    rvec[2] = b_image[2] - com_a[2];
+
+    rvec[2] = 0; // temporary fix for testing in 2D
+
+    CkPrintf("rvec in interact_approx: %f, %f, %f\n", rvec[0], rvec[1], rvec[2]);
   }
   else {
     rvec = subtract_(com_b, com_a, 3);        // displacement vector between com_b and com_a
@@ -1551,11 +1651,16 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
     }
   }
 
-  if (cello::simulation()->problem()->is_periodic()) {
+  if (ewald_ != nullptr) {
+
+    CkPrintf("ewald in interact_approx\n");
+
     std::vector<double> d1_ewald = ewald_->interp_d1(rvec[0], rvec[1], rvec[2]); // d1 contribution from periodicity
     std::vector<double> d2_ewald = ewald_->interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
     std::vector<double> d3_ewald = ewald_->interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
       
+    CkPrintf("d1_ewald: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
+    
     // Combine the derivative tensors from the periodic and non-periodic contributions    
     d1 = add_(d1, d1_ewald, 3);
     d2 = add_(d2, d2_ewald, 9);
@@ -1594,6 +1699,8 @@ void EnzoMethodMultipole::traverse_direct_pair
  Index index_b, int volume_b)
 {
 
+  CkPrintf("in traverse direct pair \n");
+
   // compute the a->b interaction
   pack_dens_(enzo_block, index_b);
 
@@ -1631,6 +1738,8 @@ void EnzoBlock::p_method_multipole_interact_direct_send (Index receiver)
 
 void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) throw()
 {
+  CkPrintf("in pack_dens\n");
+
   Data * data = enzo_block->data();
   Field field = data->field();
   Particle particle = data->particle();
@@ -1665,7 +1774,8 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   SIZE_ARRAY_TYPE(fldsize, double, lo, 3);
   SIZE_ARRAY_TYPE(fldsize, enzo_float, dens, mx*my*mz);
 
-  if (cello::simulation()->problem()->is_periodic()) {
+  CkPrintf("is ewald a nullptr in pack_dens? %d\n", ewald_ != nullptr);
+  if (ewald_ != nullptr) {
     SIZE_SCALAR_TYPE(fldsize, double, mass);
     SIZE_ARRAY_TYPE(fldsize, double, com, 3);
     SIZE_ARRAY_TYPE(fldsize, double, quadrupole, 9);
@@ -1685,7 +1795,7 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   SAVE_ARRAY_TYPE(pc, double, lo, 3);
   SAVE_ARRAY_TYPE(pc, enzo_float, dens, mx*my*mz);
 
-  if (cello::simulation()->problem()->is_periodic()) {
+  if (ewald_ != nullptr) {
     SAVE_SCALAR_TYPE(pc, double, mass);
     SAVE_ARRAY_TYPE(pc, double, com, 3);
     SAVE_ARRAY_TYPE(pc, double, quadrupole, 9);
@@ -1701,6 +1811,7 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
 
 void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, char * prtbuffer_b) throw()
 {
+  CkPrintf("in interact_direct\n");
 
   Data * data = block->data();
   Field field = data->field();
@@ -1979,7 +2090,10 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
   }
 
   // compute long-range contribution from periodic images of Block b 
-  if (cello::simulation()->problem()->is_periodic()) {
+  CkPrintf("is ewald_ a nullptr in interact_direct? %d\n", ewald_ != nullptr);
+  if (ewald_ != nullptr) {
+
+    CkPrintf("ewald in interact_direct\n");
 
     double * com_a = pcom(block);
     std::vector<double> c1_a  (pc1(block), pc1(block) + 3);
@@ -1987,19 +2101,43 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
     std::vector<double> c3_a  (pc3(block), pc3(block) + 27);
 
     double mass_b;
-    double * com_b;
+    double com_b[3];
     std::vector<double> quadrupole_b (9, 0);
+    double quadrupole_array[9];
 
+    CkPrintf("is the segfault before load scalar?\n");
     LOAD_SCALAR_TYPE(pc, double, mass_b);
     LOAD_ARRAY_TYPE(pc, double, com_b, 3);
-    LOAD_ARRAY_TYPE(pc, double, quadrupole_b, 9);
+    LOAD_ARRAY_TYPE(pc, double, quadrupole_array, 9);
+    CkPrintf("is the segfault after load scalar?\n");
 
-    double * rvec;
-    cello::hierarchy()->get_nearest_periodic_image(com_b, com_a, rvec);
+    for (int i=0; i<9; i++) {
+      quadrupole_b[i] = quadrupole_array[i];
+    }
+
+    CkPrintf("mass_b: %f\n", mass_b);
+    CkPrintf("com_a: %f %f %f\n", com_a[0], com_a[1], com_a[2]);
+    CkPrintf("com_b: %f %f %f\n", com_b[0], com_b[1], com_b[2]);
+    CkPrintf("quadrupole_b: %f %f %f\n", quadrupole_b[0], quadrupole_b[1], quadrupole_b[2]);
+
+    double b_image[3]; 
+    double rvec[3];
+    cello::hierarchy()->get_nearest_periodic_image(com_b, com_a, b_image);
+    CkPrintf("b_image: %f %f %f\n", b_image[0], b_image[1], b_image[2]);
+    b_image[2] = 0.5; 
+    // get_nearest_periodic_image has a check for dimensionality which i don't have, making the z-component garbage
+
+    rvec[0] = b_image[0] - com_a[0];
+    rvec[1] = b_image[1] - com_a[1];
+    rvec[2] = b_image[2] - com_a[2];
+
+    CkPrintf("rvec in interact_direct: %f, %f, %f\n", rvec[0], rvec[1], rvec[2]);
 
     std::vector<double> d1_ewald = ewald_->interp_d1(rvec[0], rvec[1], rvec[2]); // d1 contribution from periodicity
     std::vector<double> d2_ewald = ewald_->interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
     std::vector<double> d3_ewald = ewald_->interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
+
+    CkPrintf("d1_ewald in interact_direct: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
     
     // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
     std::vector<double> delta_c1 = add_(dot_scalar_(mass_b, d1_ewald, 3), dot_23_(quadrupole_b, dot_scalar_(0.5, d3_ewald, 27)), 3);
@@ -2101,8 +2239,16 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
   }
 
   // compute the displacement between the centers of the two Blocks
-  if (cello::simulation()->problem()->is_periodic()) {
-    cello::hierarchy()->get_nearest_periodic_image(ca, cb, d3);
+  if (ewald_ != nullptr) {
+    double ca_image[3];
+
+    // be sure to check for 1D/2D/3D and set the junk components accordingly
+    cello::hierarchy()->get_nearest_periodic_image(ca, cb, ca_image);
+    d3[0] = ca_image[0] - cb[0];
+    d3[1] = ca_image[1] - cb[1];
+    d3[2] = ca_image[2] - cb[2];
+
+    d3[2] = 0; // this is a temporary fix for working in 2D
   }
   else {
     d3[0] = ca[0] - cb[0];
@@ -2177,7 +2323,8 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
     enzo_float * pay  = 0;
     enzo_float * paz  = 0;
 
-    if (ipt != ntypes-1) {
+    // change to ntypes-1 if you want to test tracer particles
+    if (ipt != ntypes - 1) {
 
       int ia_m = particle.attribute_index (it, "mass");
       enzo_float * prtmass = 0;

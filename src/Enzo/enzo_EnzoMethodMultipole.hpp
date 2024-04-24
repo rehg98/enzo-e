@@ -33,9 +33,9 @@ public: // interface -- which methods should be public and which protected?
       is_volume_(-1),
       block_volume_(),
       max_volume_(0),
-      interp_xpoints_(64),
-      interp_ypoints_(64),
-      interp_zpoints_(64),
+      interp_xpoints_(4),
+      interp_ypoints_(4),
+      interp_zpoints_(4),
       ewald_(nullptr)
   { }
 
@@ -56,9 +56,9 @@ public: // interface -- which methods should be public and which protected?
       is_volume_(-1),
       block_volume_(),
       max_volume_(0),
-      interp_xpoints_(64),
-      interp_ypoints_(64),
-      interp_zpoints_(64),
+      interp_xpoints_(4),
+      interp_ypoints_(4),
+      interp_zpoints_(4),
       ewald_(nullptr)
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
 

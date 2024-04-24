@@ -32,6 +32,7 @@ public:
       interp_xpoints_(64),  // number of interpolation points in the x-direction
       interp_ypoints_(64),  // number of interpolation points in the y-direction
       interp_zpoints_(64)   // number of interpolation points in the z-direction
+      // is_init_(0)
   { }
 
   void pup(PUP::er &p) {
@@ -45,6 +46,7 @@ public:
     p | interp_xpoints_;
     p | interp_ypoints_;
     p | interp_zpoints_;
+    // p | is_init_;
   }
 
   void init_interpolate_() throw();
@@ -103,6 +105,8 @@ protected: // attributes
   int interp_xpoints_;
   int interp_ypoints_;
   int interp_zpoints_;
+
+  // bool is_init_; // is_initialized ==> change from 0 to false
 
 };
 
