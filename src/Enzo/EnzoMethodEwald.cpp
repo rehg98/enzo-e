@@ -5,6 +5,7 @@
 /// @date     September 28, 2023
 /// @brief    Compute Ewald sums for periodic boundary conditions
 
+// I probably don't need to include all of these right? Probably just EnzoMethodEwald.hpp and EnzoMethodMultipole.hpp
 #include "cello.hpp"
 
 #include "enzo.hpp"
@@ -21,37 +22,20 @@
 EnzoMethodEwald::EnzoMethodEwald (int interp_xpoints, int interp_ypoints, int interp_zpoints)
   : d0_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 1 (on down-sampled grid of dimension Nx x Ny x Nz)
     d1_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 3
-    d2_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 9
-    d3_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 27
-    d4_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 81
-    d5_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 243
-    d6_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 729
+    d2_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 6
+    d3_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 10
+    d4_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 15
+    d5_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 21
+    d6_array_(interp_xpoints * interp_ypoints * interp_zpoints), // Nx x Ny x Nz x 28
     interp_xpoints_(interp_xpoints),  // number of interpolation points in the x-direction
     interp_ypoints_(interp_ypoints),  // number of interpolation points in the y-direction
     interp_zpoints_(interp_zpoints)   // number of interpolation points in the z-direction
-    // is_init_(0)  // flag indicating whether interpolation arrays have been initialized
-
 { 
 
   // EnzoMethodEwald constructor is called in *compute* of EnzoMethodMultipole
+  
 
-  // CkPrintf("are we in the ewald constructor?\n");
-
-  // int interp_totpoints = interp_xpoints_ * interp_ypoints_ * interp_zpoints_;
-
-  // // eventually turn these into std::arrays of std::arrays
-  // // arrays are all 1D collections of tensors
-  // d0_array_ (interp_totpoints);  // d0 is not necessary
-  // CkPrintf("d0 array sample: %f\n", d0_array_[34]);
-  // d1_array_ (interp_totpoints);
-  // d2_array_ (interp_totpoints);
-  // d3_array_ (interp_totpoints);
-  // d4_array_ (interp_totpoints);
-  // d5_array_ (interp_totpoints);
-  // d6_array_ (interp_totpoints);
-  // // std::vector<std::vector<double>> d6_array_ (interp_totpoints);
-
-  CkPrintf("instantiated the interpolation arrays \n");
+  CkPrintf("before init interpolate\n");
 
   init_interpolate_();
 
@@ -88,30 +72,15 @@ void EnzoMethodEwald::init_interpolate_() throw()
       for (int ix = 0; ix < interp_xpoints_; ix++) {
         
         int i = ix + interp_xpoints_ * (iy + iz * interp_ypoints_);
-        // CkPrintf("i: %d \n", i);
         double x = lox + (ix + 0.5)*dx;  // do I want interp points to be at cell centers or at grid points?
         double y = loy + (iy + 0.5)*dy;
         double z = loz + (iz + 0.5)*dz; 
 
-        //CkPrintf("before trying to populate d0 array\n");
-        double d0_val = d0(x,y,z);
-        //CkPrintf("d0:%f \n", d0_val);
-        d0_array_[i] = d0_val;   // d0 is not necessary
+        d0_array_[i] = d0(x,y,z);   // d0 is not necessary
 
-        //CkPrintf("after trying to popular d0 array\n");
-
-        // std::vector<double> D1 = d1(x, y, z);
-        //std::vector<double> D1_array = d1_array_[i];
         d1_array_[i] = d1(x, y, z);
-        // for (int j = 0; j < 3; j++) {
-        //   D1_array[j] = D1[j];
-        // }
-
-        //CkPrintf("we're probably seg-faulting after this\n");
 
         d2_array_[i] = d2(x, y, z);
-
-        //CkPrintf("tried to initialize d2 array \n");
 
         d3_array_[i] = d3(x, y, z);
 
@@ -124,8 +93,6 @@ void EnzoMethodEwald::init_interpolate_() throw()
     }
   }
 
-  // is_init_ = 1;
-
 }
 
 
@@ -137,23 +104,14 @@ void EnzoMethodEwald::init_interpolate_() throw()
 // Note: this function is not necessary, since our Taylor series start at d1
 double EnzoMethodEwald::interp_d0(double x, double y, double z) throw()
 {
-
-  // // if the interpolation arrays haven't been initialized, initialize them
-  // if (!is_init_) {
-  //   init_interpolate_();
-  // }
-  
-
   int i;
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
 
-  // EnzoMethodMultipole 
-
     
   // std::array<double, 3> delta_r = {x - interp_x, y - interp_y, z - interp_z};
-  // std::array<double, 9> delta_r2 = outer_11_(delta_r, delta_r);
-  // std::array<double, 27> delta_r3 = outer_12_(delta_r, delta_r2);
+  // std::array<double, 6> delta_r2 = outer_11_(delta_r, delta_r);
+  // std::array<double, 10> delta_r3 = outer_12_(delta_r, delta_r2);
 
   std::vector<double> delta_r = {x - interp_x, y - interp_y, z - interp_z};
   std::vector<double> delta_r2 = EnzoMethodMultipole::outer_11_(delta_r, delta_r);
@@ -171,18 +129,13 @@ double EnzoMethodEwald::interp_d0(double x, double y, double z) throw()
 std::vector<double> EnzoMethodEwald::interp_d1(double x, double y, double z) throw()
 {
 
-  // // if the interpolation arrays haven't been initialized, initialize them
-  // if (!is_init_) {
-  //   init_interpolate_();
-  // }
-
   int i;
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
     
   // std::array<double, 3> delta_r = {x - interp_x, y - interp_y, z - interp_z};
-  // std::array<double, 9> delta_r2 = outer_11_(delta_r, delta_r);
-  // std::array<double, 27> delta_r3 = outer_12_(delta_r, delta_r2);
+  // std::array<double, 6> delta_r2 = outer_11_(delta_r, delta_r);
+  // std::array<double, 10> delta_r3 = outer_12_(delta_r, delta_r2);
 
   std::vector<double> delta_r = {x - interp_x, y - interp_y, z - interp_z};
   std::vector<double> delta_r2 = EnzoMethodMultipole::outer_11_(delta_r, delta_r);
@@ -208,74 +161,64 @@ std::vector<double> EnzoMethodEwald::interp_d1(double x, double y, double z) thr
 std::vector<double> EnzoMethodEwald::interp_d2(double x, double y, double z) throw()
 {
 
-  // // if the interpolation arrays haven't been initialized, initialize them
-  // if (!is_init_) {
-  //   init_interpolate_();
-  // }
-
   int i;
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
     
   // std::array<double, 3> delta_r = {x - interp_x, y - interp_y, z - interp_z};
-  // std::array<double, 9> delta_r2 = outer_11_(delta_r, delta_r);
-  // std::array<double, 27> delta_r3 = outer_12_(delta_r, delta_r2);
+  // std::array<double, 6> delta_r2 = outer_11_(delta_r, delta_r);
+  // std::array<double, 10> delta_r3 = outer_12_(delta_r, delta_r2);
 
   std::vector<double> delta_r = {x - interp_x, y - interp_y, z - interp_z};
   std::vector<double> delta_r2 = EnzoMethodMultipole::outer_11_(delta_r, delta_r);
   std::vector<double> delta_r3 = EnzoMethodMultipole::outer_12_(delta_r, delta_r2);
 
-  // std::array<double, 9> zeroth_term = d2_array[i];
-  // std::array<double, 9> first_term = dot_13_(delta_r, d3_array[i]);
-  // std::array<double, 9> second_term = 0.5 * dot_24_(delta_r2, d4_array[i]);
-  // std::array<double, 9> third_term = 1.0/6.0 * dot_35_(delta_r3, d5_array[i]);
+  // std::array<double, 6> zeroth_term = d2_array[i];
+  // std::array<double, 6> first_term = dot_13_(delta_r, d3_array[i]);
+  // std::array<double, 6> second_term = 0.5 * dot_24_(delta_r2, d4_array[i]);
+  // std::array<double, 6> third_term = 1.0/6.0 * dot_35_(delta_r3, d5_array[i]);
 
   std::vector<double> zeroth_term = d2_array_[i];
   std::vector<double> first_term = EnzoMethodMultipole::dot_13_(delta_r, d3_array_[i]);
-  std::vector<double> second_term = EnzoMethodMultipole::dot_scalar_(0.5, EnzoMethodMultipole::dot_24_(delta_r2, d4_array_[i]), 9);
-  std::vector<double> third_term = EnzoMethodMultipole::dot_scalar_(1.0/6.0, EnzoMethodMultipole::dot_35_(delta_r3, d5_array_[i]), 9);
+  std::vector<double> second_term = EnzoMethodMultipole::dot_scalar_(0.5, EnzoMethodMultipole::dot_24_(delta_r2, d4_array_[i]), 6);
+  std::vector<double> third_term = EnzoMethodMultipole::dot_scalar_(1.0/6.0, EnzoMethodMultipole::dot_35_(delta_r3, d5_array_[i]), 6);
 
   std::vector<double> zero_plus_one = EnzoMethodMultipole::add_(zeroth_term, first_term, 9);
   std::vector<double> two_plus_three = EnzoMethodMultipole::add_(second_term, third_term, 9);
 
-  return EnzoMethodMultipole::add_(zero_plus_one, two_plus_three, 9);
+  return EnzoMethodMultipole::add_(zero_plus_one, two_plus_three, 6);
   
 }
 
 std::vector<double> EnzoMethodEwald::interp_d3(double x, double y, double z) throw()
 {
 
-  // // if the interpolation arrays haven't been initialized, initialize them
-  // if (!is_init_) {
-  //   init_interpolate_();
-  // }
-
   int i;
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
     
   // std::array<double, 3> delta_r = {x - interp_x, y - interp_y, z - interp_z};
-  // std::array<double, 9> delta_r2 = outer_11_(delta_r, delta_r);
-  // std::array<double, 27> delta_r3 = outer_12_(delta_r, delta_r2);
+  // std::array<double, 6> delta_r2 = outer_11_(delta_r, delta_r);
+  // std::array<double, 10> delta_r3 = outer_12_(delta_r, delta_r2);
 
   std::vector<double> delta_r = {x - interp_x, y - interp_y, z - interp_z};
   std::vector<double> delta_r2 = EnzoMethodMultipole::outer_11_(delta_r, delta_r);
   std::vector<double> delta_r3 = EnzoMethodMultipole::outer_12_(delta_r, delta_r2);
 
-  // std::array<double, 27> zeroth_term = d3_array[i];
-  // std::array<double, 27> first_term = dot_14_(delta_r, d4_array[i]);
-  // std::array<double, 27> second_term = 0.5 * dot_25_(delta_r2, d5_array[i]);
-  // std::array<double, 27> third_term = 1.0/6.0 * dot_36_(delta_r3, d6_array[i]);
+  // std::array<double, 10> zeroth_term = d3_array[i];
+  // std::array<double, 10> first_term = dot_14_(delta_r, d4_array[i]);
+  // std::array<double, 10> second_term = 0.5 * dot_25_(delta_r2, d5_array[i]);
+  // std::array<double, 10> third_term = 1.0/6.0 * dot_36_(delta_r3, d6_array[i]);
 
   std::vector<double> zeroth_term = d3_array_[i];
   std::vector<double> first_term = EnzoMethodMultipole::dot_14_(delta_r, d4_array_[i]);
-  std::vector<double> second_term = EnzoMethodMultipole::dot_scalar_(0.5, EnzoMethodMultipole::dot_25_(delta_r2, d5_array_[i]), 27);
-  std::vector<double> third_term = EnzoMethodMultipole::dot_scalar_(1.0/6.0, EnzoMethodMultipole::dot_36_(delta_r3, d6_array_[i]), 27);
+  std::vector<double> second_term = EnzoMethodMultipole::dot_scalar_(0.5, EnzoMethodMultipole::dot_25_(delta_r2, d5_array_[i]), 10);
+  std::vector<double> third_term = EnzoMethodMultipole::dot_scalar_(1.0/6.0, EnzoMethodMultipole::dot_36_(delta_r3, d6_array_[i]), 10);
 
-  std::vector<double> zero_plus_one = EnzoMethodMultipole::add_(zeroth_term, first_term, 27);
-  std::vector<double> two_plus_three = EnzoMethodMultipole::add_(second_term, third_term, 27);
+  std::vector<double> zero_plus_one = EnzoMethodMultipole::add_(zeroth_term, first_term, 10);
+  std::vector<double> two_plus_three = EnzoMethodMultipole::add_(second_term, third_term, 10);
 
-  return EnzoMethodMultipole::add_(zero_plus_one, two_plus_three, 27);
+  return EnzoMethodMultipole::add_(zero_plus_one, two_plus_three, 10);
   
 }
 
@@ -300,7 +243,7 @@ double EnzoMethodEwald::d0(double x, double y, double z) throw()
   double alpha = 1.0 / (2.0 * pow(box_vol, 1./3)); // gadget code has 2.0 / pow(box_vol, 1./3.), but gadget paper suggests 1/(2L)
   double alpha2 = alpha * alpha;
 
-  // sum in real space
+  // sum in real space -- any way to remove these loops?
   for (int nz = -5; nz <= 5; nz++) {
     for (int ny = -5; ny <= 5; ny++) {
       for (int nx = -5; nx <= 5; nx++) {
@@ -450,7 +393,7 @@ std::vector<double> EnzoMethodEwald::d2(double x, double y, double z) throw()
 {
   /* (d2)_ij = g1 delta_ij + g2 r_i r_j */
 
-  std::vector<double> d2_counter (9, 0);
+  std::vector<double> d2_counter (6, 0);
 
   int Lx, Ly, Lz;
   cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
@@ -468,7 +411,6 @@ std::vector<double> EnzoMethodEwald::d2(double x, double y, double z) throw()
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
         double rz = z + nz * Lz;
-        double rvec[3] = {rx, ry, rz};
         double r = sqrt(rx*rx + ry*ry + rz*rz);
         double r2 = r*r;
         double r3 = r*r2;
@@ -504,16 +446,23 @@ std::vector<double> EnzoMethodEwald::d2(double x, double y, double z) throw()
           }
         }
 
-        for (int j = 0; j < 3; j++) {
-            for (int i = 0; i < 3; i++) {
-              int index = 3*i + j;
+        // for (int j = 0; j < 3; j++) {
+        //     for (int i = 0; i < 3; i++) {
+        //       int index = 3*i + j;
 
-              d2_counter[index] -= g2 * rvec[i] * rvec[j];
-              if (i == j) {
-                d2_counter[index] -= g1;
-              }
-            }
-          }
+        //       d2_counter[index] -= g2 * rvec[i] * rvec[j];
+        //       if (i == j) {
+        //         d2_counter[index] -= g1;
+        //       }
+        //     }
+        //   }
+
+        d2_counter[0] -= g2*rx*rx + g1;
+        d2_counter[1] -= g2*rx*ry;
+        d2_counter[2] -= g2*rx*rz; 
+        d2_counter[3] -= g2*ry*ry + g1;
+        d2_counter[4] -= g2*ry*rz; 
+        d2_counter[5] -= g2*rz*rz + g1;
 
       }
     }
@@ -530,19 +479,25 @@ std::vector<double> EnzoMethodEwald::d2(double x, double y, double z) throw()
           double kx = 2.0 * M_PI * nx / Lx;
           double ky = 2.0 * M_PI * ny / Ly;
           double kz = 2.0 * M_PI * nz / Lz;
-          double kvec[3]= {kx, ky, kz};
           double k2 = kx*kx + ky*ky + kz*kz;
           double kdotx = kx*x + ky*y + kz*z;
 
           double k_exp = 4.0*M_PI/box_vol * (exp(-1.0*k2 / (4.0*alpha2)) / k2) * cos(kdotx); 
 
-          for (int j = 0; j < 3; j++) {
-            for (int i = 0; i < 3; i++) {
-              int index = 3*i + j;
+          // for (int j = 0; j < 3; j++) {
+          //   for (int i = 0; i < 3; i++) {
+          //     int index = 3*i + j;
 
-              d2_counter[index] += k_exp * kvec[i] * kvec[j];
-            }
-          }
+          //     d2_counter[index] += k_exp * kvec[i] * kvec[j];
+          //   }
+          // }
+
+          d2_counter[0] += k_exp * kx*kx;
+          d2_counter[1] += k_exp * kx*ky;
+          d2_counter[2] += k_exp * kx*kz;
+          d2_counter[3] += k_exp * ky*ky;
+          d2_counter[4] += k_exp * ky*kz;
+          d2_counter[5] += k_exp * kz*kz;
         } 
       }
     }
@@ -557,7 +512,7 @@ std::vector<double> EnzoMethodEwald::d3(double x, double y, double z) throw()
 {
   /* (d3)_ijk = g2 * (delta_ij * r_k + delta_jk * r_i + delta_ik * r_j) + g_3 * r_i * r_j * r_k */
 
-  std::vector<double> d3_counter (27, 0);
+  std::vector<double> d3_counter (10, 0);
 
   int Lx, Ly, Lz;
   cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
@@ -576,7 +531,6 @@ std::vector<double> EnzoMethodEwald::d3(double x, double y, double z) throw()
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
         double rz = z + nz * Lz;
-        double rvec[3] = {rx, ry, rz};
         double r = sqrt(rx*rx + ry*ry + rz*rz);
         double r2 = r*r;
         double r3 = r2*r;
@@ -616,29 +570,40 @@ std::vector<double> EnzoMethodEwald::d3(double x, double y, double z) throw()
           }
         }
 
-        for (int k = 0; k < 3; k++) {
-          for (int j = 0; j < 3; j++) {
-            for (int i = 0; i < 3; i++) {
+        // for (int k = 0; k < 3; k++) {
+        //   for (int j = 0; j < 3; j++) {
+        //     for (int i = 0; i < 3; i++) {
 
-              int index = j + 3 * (i + 3*k);
+        //       int index = j + 3 * (i + 3*k);
 
-              d3_counter[index] -= g3 * rvec[i] * rvec[j] * rvec[k];
+        //       d3_counter[index] -= g3 * rvec[i] * rvec[j] * rvec[k];
 
-              if (i == j) {
-                d3_counter[index] -= g2 * rvec[k];
-              }
+        //       if (i == j) {
+        //         d3_counter[index] -= g2 * rvec[k];
+        //       }
 
-              if (j == k) {
-                d3_counter[index] -= g2 * rvec[i];
-              }
+        //       if (j == k) {
+        //         d3_counter[index] -= g2 * rvec[i];
+        //       }
 
-              if (i == k) {
-                d3_counter[index] -= g2 * rvec[j];
-              }
+        //       if (i == k) {
+        //         d3_counter[index] -= g2 * rvec[j];
+        //       }
               
-            }
-          }
-        }
+        //     }
+        //   }
+        // }
+
+        d3_counter[0] -= g3*rx*rx*rx + 3*g2*rx;
+        d3_counter[1] -= g3*rx*rx*ry + g2*ry;
+        d3_counter[2] -= g3*rx*rx*rz + g2*rz;
+        d3_counter[3] -= g3*rx*ry*ry + g2*rx;
+        d3_counter[4] -= g3*rx*ry*rz;
+        d3_counter[5] -= g3*rx*rz*rz + g2*rx;
+        d3_counter[6] -= g3*ry*ry*ry + 3*g2*ry;
+        d3_counter[7] -= g3*ry*ry*rz + g2*rz;
+        d3_counter[8] -= g3*ry*rz*rz + g2*ry;
+        d3_counter[9] -= g3*rz*rz*rz + 3*g2*rz;
       }
     }
   }
@@ -654,22 +619,32 @@ std::vector<double> EnzoMethodEwald::d3(double x, double y, double z) throw()
           double kx = 2.0 * M_PI * nx / Lx;
           double ky = 2.0 * M_PI * ny / Ly;
           double kz = 2.0 * M_PI * nz / Lz;
-          double kvec[3]= {kx, ky, kz};
           double k2 = kx*kx + ky*ky + kz*kz;
           double kdotx = kx*x + ky*y + kz*z;
 
           double k_exp = 4.0*M_PI/box_vol * (exp(-1.0*k2 / (4.0*alpha2)) / k2) * sin(kdotx); 
 
-          for (int k = 0; k < 3; k++) {
-            for (int j = 0; j < 3; j++) {
-              for (int i = 0; i < 3; i++) {
-                int index = j + 3 * (i + k * 3);
+          // for (int k = 0; k < 3; k++) {
+          //   for (int j = 0; j < 3; j++) {
+          //     for (int i = 0; i < 3; i++) {
+          //       int index = j + 3 * (i + k * 3);
 
-                d3_counter[index] -= k_exp * kvec[i] * kvec[j] * kvec[k];
+          //       d3_counter[index] -= k_exp * kvec[i] * kvec[j] * kvec[k];
 
-              }
-            }
-          }
+          //     }
+          //   }
+          // }
+
+          d3_counter[0] -= k_exp * kx*kx*kx;
+          d3_counter[1] -= k_exp * kx*kx*ky;
+          d3_counter[2] -= k_exp * kx*kx*kz;
+          d3_counter[3] -= k_exp * kx*ky*ky;
+          d3_counter[4] -= k_exp * kx*ky*kz;
+          d3_counter[5] -= k_exp * kx*kz*kz;
+          d3_counter[6] -= k_exp * ky*ky*ky;
+          d3_counter[7] -= k_exp * ky*ky*kz;
+          d3_counter[8] -= k_exp * ky*kz*kz;
+          d3_counter[9] -= k_exp * kz*kz*kz;
         } 
       }
     }
@@ -683,10 +658,10 @@ std::vector<double> EnzoMethodEwald::d3(double x, double y, double z) throw()
 std::vector<double> EnzoMethodEwald::d4(double x, double y, double z) throw()
 {
   /* (d4)_ijkl = g2 * (delta_ij * delta_kl + delta_jk * delta_il + delta_ik * delta_jl) 
-               - g3 * (delta_ij r_k r_l + delta_jk r_i r_l + delta_ik r_j r_l + delta_il r_j r_k + delta_jl r_i r_k + delta_kl r_i r_j)
+               + g3 * (delta_ij r_k r_l + delta_jk r_i r_l + delta_ik r_j r_l + delta_il r_j r_k + delta_jl r_i r_k + delta_kl r_i r_j)
                + g4 * r_i * r_j * r_k * r_l      */
 
-  std::vector<double> d4_counter (81, 0);
+  std::vector<double> d4_counter (15, 0);
 
   int Lx, Ly, Lz;
   cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
@@ -706,7 +681,6 @@ std::vector<double> EnzoMethodEwald::d4(double x, double y, double z) throw()
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
         double rz = z + nz * Lz;
-        double rvec[3] = {rx, ry, rz};
         double r = sqrt(rx*rx + ry*ry + rz*rz);
         double r2 = r*r;
         double r3 = r2*r;
@@ -759,54 +733,71 @@ std::vector<double> EnzoMethodEwald::d4(double x, double y, double z) throw()
           }
         }
 
-        for (int l = 0; l < 3; l++) {
-          for (int k = 0; k < 3; k++) {
-            for (int j = 0; j < 3; j++) {
-              for (int i = 0; i < 3; i++) {
+        // for (int l = 0; l < 3; l++) {
+        //   for (int k = 0; k < 3; k++) {
+        //     for (int j = 0; j < 3; j++) {
+        //       for (int i = 0; i < 3; i++) {
 
-                int index = j + 3 * (i + 3*(k + 3*l));
+        //         int index = j + 3 * (i + 3*(k + 3*l));
 
-                d4_counter[index] -= g4 * rvec[i] * rvec[j] * rvec[k] * rvec[l];
+        //         d4_counter[index] -= g4 * rvec[i] * rvec[j] * rvec[k] * rvec[l];
 
-                if (i == j) {
-                  d4_counter[index] -= g3 * rvec[k] * rvec[l];
+        //         if (i == j) {
+        //           d4_counter[index] -= g3 * rvec[k] * rvec[l];
 
-                  if (k == l) {
-                    d4_counter[index] -= g2;
-                  }
-                }
+        //           if (k == l) {
+        //             d4_counter[index] -= g2;
+        //           }
+        //         }
 
-                if (j == k) {
-                  d4_counter[index] -= g3 * rvec[i] * rvec[l];
+        //         if (j == k) {
+        //           d4_counter[index] -= g3 * rvec[i] * rvec[l];
 
-                  if (i == l) {
-                    d4_counter[index] -= g2;
-                  }
-                }
+        //           if (i == l) {
+        //             d4_counter[index] -= g2;
+        //           }
+        //         }
 
-                if (i == k) {
-                  d4_counter[index] -= g3 * rvec[j] * rvec[l];
+        //         if (i == k) {
+        //           d4_counter[index] -= g3 * rvec[j] * rvec[l];
 
-                  if (j == l) {
-                    d4_counter[index] -= g2;
-                  }
-                }
+        //           if (j == l) {
+        //             d4_counter[index] -= g2;
+        //           }
+        //         }
 
-                if (i == l) {
-                  d4_counter[index] -= g3 * rvec[j] * rvec[k];
-                }
+        //         if (i == l) {
+        //           d4_counter[index] -= g3 * rvec[j] * rvec[k];
+        //         }
 
-                if (j == l) {
-                  d4_counter[index] -= g3 * rvec[i] * rvec[k];
-                }
+        //         if (j == l) {
+        //           d4_counter[index] -= g3 * rvec[i] * rvec[k];
+        //         }
 
-                if (k == l) {
-                  d4_counter[index] -= g3 * rvec[i] * rvec[j];
-                }
-              }
-            }
-          }
-        }
+        //         if (k == l) {
+        //           d4_counter[index] -= g3 * rvec[i] * rvec[j];
+        //         }
+        //       }
+        //     }
+        //   }
+        // }
+
+        d4_counter[0] -= g4*rx*rx*rx*rx + 6*g3*rx*rx + 3*g2;
+        d4_counter[1] -= g4*rx*rx*rx*ry + 3*g3*rx*ry;
+        d4_counter[2] -= g4*rx*rx*rx*rz + 3*g3*rx*rz;
+        d4_counter[3] -= g4*rx*rx*ry*ry + g3*(rx*rx + ry*ry) + g2;
+        d4_counter[4] -= g4*rx*rx*ry*rz + g3*ry*rz;
+        d4_counter[5] -= g4*rx*rx*rz*rz + g3*(rx*rx + rz*rz) + g2;
+        d4_counter[6] -= g4*rx*ry*ry*ry + 3*g3*rx*ry;
+        d4_counter[7] -= g4*rx*ry*ry*rz + g3*rx*rz;
+        d4_counter[8] -= g4*rx*ry*rz*rz + g3*rx*ry;
+        d4_counter[9] -= g4*rx*rz*rz*rz + 3*g3*rx*rz;
+        d4_counter[10] -= g4*ry*ry*ry*ry + 6*g3*ry*ry + 3*g2;
+        d4_counter[11] -= g4*ry*ry*ry*rz + 3*g3*ry*rz;
+        d4_counter[12] -= g4*ry*ry*rz*rz + g3*(ry*ry + rz*rz) + g2;
+        d4_counter[13] -= g4*ry*rz*rz*rz + 3*g3*ry*rz;
+        d4_counter[14] -= g4*rz*rz*rz*rz + 6*g3*rz*rz + 3*g2;
+
       }
     }
   }
@@ -821,24 +812,40 @@ std::vector<double> EnzoMethodEwald::d4(double x, double y, double z) throw()
           double kx = 2.0 * M_PI * nx / Lx;
           double ky = 2.0 * M_PI * ny / Ly;
           double kz = 2.0 * M_PI * nz / Lz;
-          double kvec[3]= {kx, ky, kz};
           double k2 = kx*kx + ky*ky + kz*kz;
           double kdotx = kx*x + ky*y + kz*z;
 
           double k_exp = 4.0*M_PI/box_vol * (exp(-1.0*k2 / (4.0*alpha2)) / k2) * cos(kdotx); 
 
-          for (int l = 0; l < 3; l++) {
-            for (int k = 0; k < 3; k++) {
-              for (int j = 0; j < 3; j++) {
-                for (int i = 0; i < 3; i++) {
+          // for (int l = 0; l < 3; l++) {
+          //   for (int k = 0; k < 3; k++) {
+          //     for (int j = 0; j < 3; j++) {
+          //       for (int i = 0; i < 3; i++) {
 
-                  int index = j + 3 * (i + 3 * (k + 3 * l));
+          //         int index = j + 3 * (i + 3 * (k + 3 * l));
 
-                  d4_counter[index] -= k_exp * kvec[i] * kvec[j] * kvec[k] * kvec[l];
-                }
-              }
-            }
-          }
+          //         d4_counter[index] -= k_exp * kvec[i] * kvec[j] * kvec[k] * kvec[l];
+          //       }
+          //     }
+          //   }
+          // }
+
+          d4_counter[0] -= k_exp * kx*kx*kx*kx;
+          d4_counter[1] -= k_exp * kx*kx*kx*ky;
+          d4_counter[2] -= k_exp * kx*kx*kx*kz;
+          d4_counter[3] -= k_exp * kx*kx*ky*ky;
+          d4_counter[4] -= k_exp * kx*kx*ky*kz;
+          d4_counter[5] -= k_exp * kx*kx*kz*kz;
+          d4_counter[6] -= k_exp * kx*ky*ky*ky;
+          d4_counter[7] -= k_exp * kx*ky*ky*kz;
+          d4_counter[8] -= k_exp * kx*ky*kz*kz;
+          d4_counter[9] -= k_exp * kx*kz*kz*kz;
+          d4_counter[10] -= k_exp * ky*ky*ky*ky;
+          d4_counter[11] -= k_exp * ky*ky*ky*kz;
+          d4_counter[12] -= k_exp * ky*ky*kz*kz;
+          d4_counter[13] -= k_exp * ky*kz*kz*kz;
+          d4_counter[14] -= k_exp * kz*kz*kz*kz;
+
         } 
       }
     }
@@ -863,7 +870,7 @@ std::vector<double> EnzoMethodEwald::d5(double x, double y, double z) throw()
                       + delta_lm r_i r_j r_k)
                   + g5 r_i r_j r_k r_l r_m       */
 
-  std::vector<double> d5_counter (243, 0);
+  std::vector<double> d5_counter (21, 0);
 
   int Lx, Ly, Lz;
   cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
@@ -884,7 +891,6 @@ std::vector<double> EnzoMethodEwald::d5(double x, double y, double z) throw()
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
         double rz = z + nz * Lz;
-        double rvec[3] = {rx, ry, rz};
         double r = sqrt(rx*rx + ry*ry + rz*rz);
         double r2 = r*r;
         double r3 = r2*r;
@@ -939,120 +945,143 @@ std::vector<double> EnzoMethodEwald::d5(double x, double y, double z) throw()
           }
         }
 
-        for (int m = 0; m < 3; m++) {
-          for (int l = 0; l < 3; l++) {
-            for (int k = 0; k < 3; k++) {
-              for (int j = 0; j < 3; j++) {
-                for (int i = 0; i < 3; i++) {
+        // for (int m = 0; m < 3; m++) {
+        //   for (int l = 0; l < 3; l++) {
+        //     for (int k = 0; k < 3; k++) {
+        //       for (int j = 0; j < 3; j++) {
+        //         for (int i = 0; i < 3; i++) {
 
-                  int index = j + 3 * (i + 3*(k + 3*(l + 3*m)));
+        //           int index = j + 3 * (i + 3*(k + 3*(l + 3*m)));
 
-                  d5_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[k] * rvec[l] * rvec[m];
+        //           d5_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[k] * rvec[l] * rvec[m];
 
-                  if (i == j) {
-                    d5_counter[index] -= g4 * rvec[k] * rvec[l] * rvec[m];
+        //           if (i == j) {
+        //             d5_counter[index] -= g4 * rvec[k] * rvec[l] * rvec[m];
 
-                    if (k == l) {
-                      d5_counter[index] -= g3 * rvec[m];
-                    }
+        //             if (k == l) {
+        //               d5_counter[index] -= g3 * rvec[m];
+        //             }
 
-                    if (k == m) {
-                      d5_counter[index] -= g3 * rvec[l];
-                    }
+        //             if (k == m) {
+        //               d5_counter[index] -= g3 * rvec[l];
+        //             }
 
-                    if (l == m) {
-                      d5_counter[index] -= g3 * rvec[k];
-                    }
-                  }
+        //             if (l == m) {
+        //               d5_counter[index] -= g3 * rvec[k];
+        //             }
+        //           }
 
-                  if (j == k) {
-                    d5_counter[index] -= g4 * rvec[i] * rvec[l] * rvec[m];
+        //           if (j == k) {
+        //             d5_counter[index] -= g4 * rvec[i] * rvec[l] * rvec[m];
 
-                    if (i == l) {
-                      d5_counter[index] -= g3 * rvec[m];
-                    }
+        //             if (i == l) {
+        //               d5_counter[index] -= g3 * rvec[m];
+        //             }
 
-                    if (i == m) {
-                      d5_counter[index] -= g3 * rvec[l];
-                    }
+        //             if (i == m) {
+        //               d5_counter[index] -= g3 * rvec[l];
+        //             }
 
-                    if (l == m) {
-                      d5_counter[index] -= g3 * rvec[i];
-                    }
-                  }
+        //             if (l == m) {
+        //               d5_counter[index] -= g3 * rvec[i];
+        //             }
+        //           }
 
-                  if (i == k) {
-                    d5_counter[index] -= g4 * rvec[j] * rvec[l] * rvec[m];
+        //           if (i == k) {
+        //             d5_counter[index] -= g4 * rvec[j] * rvec[l] * rvec[m];
 
-                    if (j == l) {
-                      d5_counter[index] -= g3 * rvec[m];
-                    }
+        //             if (j == l) {
+        //               d5_counter[index] -= g3 * rvec[m];
+        //             }
 
-                    if (j == m) {
-                      d5_counter[index] -= g3 * rvec[l];
-                    }
+        //             if (j == m) {
+        //               d5_counter[index] -= g3 * rvec[l];
+        //             }
 
-                    if (l == m) {
-                      d5_counter[index] -= g3 * rvec[j];
-                    }
-                  }
+        //             if (l == m) {
+        //               d5_counter[index] -= g3 * rvec[j];
+        //             }
+        //           }
 
-                  if (i == l) {
-                    d5_counter[index] -= g4 * rvec[j] * rvec[k] * rvec[m];
-                  }
+        //           if (i == l) {
+        //             d5_counter[index] -= g4 * rvec[j] * rvec[k] * rvec[m];
+        //           }
 
-                  if (j == l) {
-                    d5_counter[index] -= g4 * rvec[i] * rvec[k] * rvec[m];
-                  }
+        //           if (j == l) {
+        //             d5_counter[index] -= g4 * rvec[i] * rvec[k] * rvec[m];
+        //           }
 
-                  if (k == l) {
-                    d5_counter[index] -= g4 * rvec[i] * rvec[j] * rvec[m];
-                  }
+        //           if (k == l) {
+        //             d5_counter[index] -= g4 * rvec[i] * rvec[j] * rvec[m];
+        //           }
 
-                  if (i == m) {
-                    d5_counter[index] -= g4 * rvec[j] * rvec[k] * rvec[l];
+        //           if (i == m) {
+        //             d5_counter[index] -= g4 * rvec[j] * rvec[k] * rvec[l];
 
-                    if (j == l) {
-                      d5_counter[index] -= g3 * rvec[k];
-                    }
+        //             if (j == l) {
+        //               d5_counter[index] -= g3 * rvec[k];
+        //             }
 
-                    if (k == l) {
-                      d5_counter[index] -= g3 * rvec[j];
-                    }
-                  }
+        //             if (k == l) {
+        //               d5_counter[index] -= g3 * rvec[j];
+        //             }
+        //           }
 
-                  if (j == m) {
-                    d5_counter[index] -= g4 * rvec[i] * rvec[k] * rvec[l];
+        //           if (j == m) {
+        //             d5_counter[index] -= g4 * rvec[i] * rvec[k] * rvec[l];
 
-                    if (i == l) {
-                      d5_counter[index] -= g3 * rvec[k];
-                    }
+        //             if (i == l) {
+        //               d5_counter[index] -= g3 * rvec[k];
+        //             }
 
-                    if (k == l) {
-                      d5_counter[index] -= g3 * rvec[i];
-                    }
-                  }
+        //             if (k == l) {
+        //               d5_counter[index] -= g3 * rvec[i];
+        //             }
+        //           }
 
-                  if (k == m) {
-                    d5_counter[index] -= g4 * rvec[i] * rvec[j] * rvec[l];
+        //           if (k == m) {
+        //             d5_counter[index] -= g4 * rvec[i] * rvec[j] * rvec[l];
 
-                    if (i == l) {
-                      d5_counter[index] -= g3 * rvec[j];
-                    }
+        //             if (i == l) {
+        //               d5_counter[index] -= g3 * rvec[j];
+        //             }
 
-                    if (j == l) {
-                      d5_counter[index] -= g3 * rvec[i];
-                    }
-                  }
+        //             if (j == l) {
+        //               d5_counter[index] -= g3 * rvec[i];
+        //             }
+        //           }
 
-                  if (l == m) {
-                    d5_counter[index] -= g4 * rvec[i] * rvec[j] * rvec[k];
-                  }
-                }
-              }
-            }
-          }
-        }
+        //           if (l == m) {
+        //             d5_counter[index] -= g4 * rvec[i] * rvec[j] * rvec[k];
+        //           }
+        //         }
+        //       }
+        //     }
+        //   }
+        // }
+
+
+        d5_counter[0] -= g5*rx*rx*rx*rx*rx + 10*g4*rx*rx*rx + 15*g3*rx;
+        d5_counter[1] -= g5*rx*rx*rx*rx*ry + 6*g4*rx*rx*ry + 3*g3*ry;
+        d5_counter[2] -= g5*rx*rx*rx*rx*rz + 6*g4*rx*rx*rz + 3*g3*rz;
+        d5_counter[3] -= g5*rx*rx*rx*ry*ry + g4*(3*rx*ry*ry + rx*rx*rx) + 3*g3*rx;
+        d5_counter[4] -= g5*rx*rx*rx*ry*rz + 3*g4*rx*ry*rz;
+        d5_counter[5] -= g5*rx*rx*rx*rz*rz + g4*(3*rx*rz*rz + rx*rx*rx) + 3*g3*rx;
+        d5_counter[6] -= g5*rx*rx*ry*ry*ry + g4*(3*rx*rx*ry + ry*ry*ry) + 3*g3*ry;
+        d5_counter[7] -= g5*rx*rx*ry*ry*rz + g4*(ry*ry*rz + rx*rx*rz) + g3*rz;
+        d5_counter[8] -= g5*rx*rx*ry*rz*rz + g4*(ry*rz*rz + rx*rx*ry) + g3*ry;
+        d5_counter[9] -= g5*rx*rx*rz*rz*rz + g4*(3*rx*rx*rz + rz*rz*rz) + 3*g3*rz;
+        d5_counter[10] -= g5*rx*ry*ry*ry*ry + 6*g4*rx*ry*ry + 3*g3*rx;
+        d5_counter[11] -= g5*rx*ry*ry*ry*rz + 3*g4*rx*ry*rz;
+        d5_counter[12] -= g5*rx*ry*ry*rz*rz + g4*(rx*ry*ry + rx*rz*rz) + g3*rx;
+        d5_counter[13] -= g5*rx*ry*rz*rz*rz + 3*g4*rx*ry*rz;
+        d5_counter[14] -= g5*rx*rz*rz*rz*rz + 6*g4*rx*rz*rz + 3*g3*rx;
+        d5_counter[15] -= g5*ry*ry*ry*ry*ry + 10*g4*ry*ry*ry + 15*g3*ry;
+        d5_counter[16] -= g5*ry*ry*ry*ry*rz + 6*g4*ry*ry*rz + 3*g3*rz;
+        d5_counter[17] -= g5*ry*ry*ry*rz*rz + g4*(3*ry*rz*rz + ry*ry*ry) + 3*g3*ry;
+        d5_counter[18] -= g5*ry*ry*rz*rz*rz + g4*(3*ry*ry*rz + rz*rz*rz) + 3*g3*rz;
+        d5_counter[19] -= g5*ry*rz*rz*rz*rz + 6*g4*ry*rz*rz + 3*g3*ry;
+        d5_counter[20] -= g5*rz*rz*rz*rz*rz + 10*g4*rz*rz*rz + 15*g3*rz;
       }
     }
   }
@@ -1067,26 +1096,48 @@ std::vector<double> EnzoMethodEwald::d5(double x, double y, double z) throw()
           double kx = 2.0 * M_PI * nx / Lx;
           double ky = 2.0 * M_PI * ny / Ly;
           double kz = 2.0 * M_PI * nz / Lz;
-          double kvec[3]= {kx, ky, kz};
           double k2 = kx*kx + ky*ky + kz*kz;
           double kdotx = kx*x + ky*y + kz*z;
 
           double k_exp = 4.0*M_PI/box_vol * (exp(-1.0*k2 / (4.0*alpha2)) / k2) * sin(kdotx); 
 
-          for (int m = 0; m < 3; m++) {
-            for (int l = 0; l < 3; l++) {
-              for (int k = 0; k < 3; k++) {
-                for (int j = 0; j < 3; j++) {
-                  for (int i = 0; i < 3; i++) {
+          // for (int m = 0; m < 3; m++) {
+          //   for (int l = 0; l < 3; l++) {
+          //     for (int k = 0; k < 3; k++) {
+          //       for (int j = 0; j < 3; j++) {
+          //         for (int i = 0; i < 3; i++) {
 
-                    int index = j + 3 * (i + 3 * (k + 3 * l));
+          //           int index = j + 3 * (i + 3 * (k + 3 * l));
 
-                    d5_counter[index] += k_exp * kvec[i] * kvec[j] * kvec[k] * kvec[l] * kvec[m];
-                  }
-                }
-              }
-            }
-          }
+          //           d5_counter[index] += k_exp * kvec[i] * kvec[j] * kvec[k] * kvec[l] * kvec[m];
+          //         }
+          //       }
+          //     }
+          //   }
+          // }
+
+          d5_counter[0] += k_exp * kx*kx*kx*kx*kx;
+          d5_counter[1] += k_exp * kx*kx*kx*kx*ky;
+          d5_counter[2] += k_exp * kx*kx*kx*kx*kz;
+          d5_counter[3] += k_exp * kx*kx*kx*ky*ky;
+          d5_counter[4] += k_exp * kx*kx*kx*ky*kz;
+          d5_counter[5] += k_exp * kx*kx*kx*kz*kz;
+          d5_counter[6] += k_exp * kx*kx*ky*ky*ky;
+          d5_counter[7] += k_exp * kx*kx*ky*ky*kz;
+          d5_counter[8] += k_exp * kx*kx*ky*kz*kz;
+          d5_counter[9] += k_exp * kx*kx*kz*kz*kz;
+          d5_counter[10] += k_exp * kx*ky*ky*ky*ky;
+          d5_counter[11] += k_exp * kx*ky*ky*ky*kz;
+          d5_counter[12] += k_exp * kx*ky*ky*kz*kz;
+          d5_counter[13] += k_exp * kx*ky*kz*kz*kz;
+          d5_counter[14] += k_exp * kx*kz*kz*kz*kz;
+          d5_counter[15] += k_exp * ky*ky*ky*ky*ky;
+          d5_counter[16] += k_exp * ky*ky*ky*ky*kz;
+          d5_counter[17] += k_exp * ky*ky*ky*kz*kz;
+          d5_counter[18] += k_exp * ky*ky*kz*kz*kz;
+          d5_counter[19] += k_exp * ky*kz*kz*kz*kz;
+          d5_counter[20] += k_exp * kz*kz*kz*kz*kz;
+
         } 
       }
     }
@@ -1103,7 +1154,7 @@ std::vector<double> EnzoMethodEwald::d6(double x, double y, double z) throw()
   /* (d6)_ijklmn = g3 (delta_mn delta_ij delta_kl + delta_mn delta_jk delta_il + delta_mn delta_ik delta_jl
                         + delta_ln delta_ij delta_km + delta_ln delta_jk delta_im + delta_ln delta_ik delta_jm
                         + delta_kn delta_ij delta_lm + delta_kn delta_jl delta_im + delta_kn delta_il delta_jm
-                        + delta_jn delta_ik delta_lm + delta_jn delta_lk delta_km + delta_jn delta_il delta_km
+                        + delta_jn delta_ik delta_lm + delta_jn delta_lk delta_im + delta_jn delta_il delta_km
                         + delta_in delta_jk delta_lm + delta_in delta_lk delta_jm + delta_in delta_jl delta_km)
                 +  g4 [r_i r_j (delta_kl delta_mn + delta_lm delta_kn + delta_km delta_ln)
                      + r_i r_k (delta_jl delta_mn + delta_lm delta_jn + delta_jm delta_ln)
@@ -1128,7 +1179,7 @@ std::vector<double> EnzoMethodEwald::d6(double x, double y, double z) throw()
                 +  g6 r_i r_j r_k r_l r_m r_n       
                       */
 
-  std::vector<double> d6_counter (729, 0);
+  std::vector<double> d6_counter (28, 0);
 
   int Lx, Ly, Lz;
   cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
@@ -1150,7 +1201,6 @@ std::vector<double> EnzoMethodEwald::d6(double x, double y, double z) throw()
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
         double rz = z + nz * Lz;
-        double rvec[3] = {rx, ry, rz};
         double r = sqrt(rx*rx + ry*ry + rz*rz);
         double r2 = r*r;
         double r3 = r2*r;
@@ -1219,323 +1269,353 @@ std::vector<double> EnzoMethodEwald::d6(double x, double y, double z) throw()
           }
         }
 
-        for (int n = 0; n < 3; n++) {
-          for (int m = 0; m < 3; m++) {
-            for (int l = 0; l < 3; l++) {
-              for (int k = 0; k < 3; k++) {
-                for (int j = 0; j < 3; j++) {
-                  for (int i = 0; i < 3; i++) {
+        // for (int n = 0; n < 3; n++) {
+        //   for (int m = 0; m < 3; m++) {
+        //     for (int l = 0; l < 3; l++) {
+        //       for (int k = 0; k < 3; k++) {
+        //         for (int j = 0; j < 3; j++) {
+        //           for (int i = 0; i < 3; i++) {
 
-                    int index = j + 3 * (i + 3*(k + 3*(l + 3*(m + 3*n))));
+        //             int index = j + 3 * (i + 3*(k + 3*(l + 3*(m + 3*n))));
 
-                    d6_counter[index] -= g6 * rvec[i] * rvec[j] * rvec[k] * rvec[l] * rvec[m] * rvec[n];
+        //             d6_counter[index] -= g6 * rvec[i] * rvec[j] * rvec[k] * rvec[l] * rvec[m] * rvec[n];
 
-                    if (i == j) {
-                      d6_counter[index] -= g5 * rvec[k] * rvec[l] * rvec[m] * rvec[n];
+        //             if (i == j) {
+        //               d6_counter[index] -= g5 * rvec[k] * rvec[l] * rvec[m] * rvec[n];
 
-                      if (m == n) {
-                        d6_counter[index] -= g4 * rvec[k] * rvec[l];
-                      }
+        //               if (m == n) {
+        //                 d6_counter[index] -= g4 * rvec[k] * rvec[l];
+        //               }
 
-                      if (l == n) {
-                        d6_counter[index] -= g4 * rvec[k] * rvec[m];
-                      }
+        //               if (l == n) {
+        //                 d6_counter[index] -= g4 * rvec[k] * rvec[m];
+        //               }
 
-                      if (l == m) {
-                        d6_counter[index] -= g4 * rvec[k] * rvec[n];
-                      }
+        //               if (l == m) {
+        //                 d6_counter[index] -= g4 * rvec[k] * rvec[n];
+        //               }
 
-                      if (k == n) {
-                        d6_counter[index] -= g4 * rvec[l] * rvec[m];
+        //               if (k == n) {
+        //                 d6_counter[index] -= g4 * rvec[l] * rvec[m];
 
-                        if (l == m) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (l == m) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (k == m) {
-                        d6_counter[index] -= g4 * rvec[l] * rvec[n];
+        //               if (k == m) {
+        //                 d6_counter[index] -= g4 * rvec[l] * rvec[n];
 
-                        if (l == n) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (l == n) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (k == l) {
-                        d6_counter[index] -= g4 * rvec[m] * rvec[n];
+        //               if (k == l) {
+        //                 d6_counter[index] -= g4 * rvec[m] * rvec[n];
 
-                        if (m == n) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
-                    }
+        //                 if (m == n) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
+        //             }
 
-                    if (j == k) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[l] * rvec[m] * rvec[n];
+        //             if (j == k) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[l] * rvec[m] * rvec[n];
 
-                      if (m == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[l];
-                      }
+        //               if (m == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[l];
+        //               }
 
-                      if (l == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[m];
-                      }
+        //               if (l == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[m];
+        //               }
 
-                      if (l == m) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[n];
-                      }
+        //               if (l == m) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[n];
+        //               }
 
-                      if (i == n) {
-                        d6_counter[index] -= g4 * rvec[l] * rvec[m];
+        //               if (i == n) {
+        //                 d6_counter[index] -= g4 * rvec[l] * rvec[m];
 
-                        if (l == m) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (l == m) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (i == m) {
-                        d6_counter[index] -= g4 * rvec[l] * rvec[n];
+        //               if (i == m) {
+        //                 d6_counter[index] -= g4 * rvec[l] * rvec[n];
 
-                        if (l == n) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (l == n) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (i == l) {
-                        d6_counter[index] -= g4 * rvec[m] * rvec[n];
+        //               if (i == l) {
+        //                 d6_counter[index] -= g4 * rvec[m] * rvec[n];
 
-                        if (m == n) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (m == n) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
                       
-                    }
+        //             }
 
-                    if (i == k) {
-                      d6_counter[index] -= g5 * rvec[j] * rvec[l] * rvec[m] * rvec[n];
+        //             if (i == k) {
+        //               d6_counter[index] -= g5 * rvec[j] * rvec[l] * rvec[m] * rvec[n];
 
-                      if (m == n) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[l];
-                      }
+        //               if (m == n) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[l];
+        //               }
 
-                      if (l == n) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[m];
-                      }
+        //               if (l == n) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[m];
+        //               }
 
-                      if (l == m) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[n];
-                      }
+        //               if (l == m) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[n];
+        //               }
 
-                      if (j == n) {
-                        d6_counter[index] -= g4 * rvec[l] * rvec[m];
+        //               if (j == n) {
+        //                 d6_counter[index] -= g4 * rvec[l] * rvec[m];
 
-                        if (l == m) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (l == m) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (j == m) {
-                        d6_counter[index] -= g4 * rvec[l] * rvec[n];
+        //               if (j == m) {
+        //                 d6_counter[index] -= g4 * rvec[l] * rvec[n];
 
-                        if (l == n) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (l == n) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (j == l) {
-                        d6_counter[index] -= g4 * rvec[m] * rvec[n];
+        //               if (j == l) {
+        //                 d6_counter[index] -= g4 * rvec[m] * rvec[n];
 
-                        if (m == n) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
-                    }
+        //                 if (m == n) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
+        //             }
 
-                    if (i == l) {
-                      d6_counter[index] -= g5 * rvec[j] * rvec[k] * rvec[m] * rvec[n];
+        //             if (i == l) {
+        //               d6_counter[index] -= g5 * rvec[j] * rvec[k] * rvec[m] * rvec[n];
 
-                      if (m == n) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[k];
-                      }
+        //               if (m == n) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[k];
+        //               }
 
-                      if (k == n) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[m];
-                      }
+        //               if (k == n) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[m];
+        //               }
 
-                      if (k == m) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[n];
-                      }
+        //               if (k == m) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[n];
+        //               }
 
-                      if (j == n) {
-                        d6_counter[index] -= g4 * rvec[k] * rvec[m];
+        //               if (j == n) {
+        //                 d6_counter[index] -= g4 * rvec[k] * rvec[m];
 
-                        if (k == m) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (k == m) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (j == m) {
-                        d6_counter[index] -= g4 * rvec[k] * rvec[n];
+        //               if (j == m) {
+        //                 d6_counter[index] -= g4 * rvec[k] * rvec[n];
 
-                        if (k == n) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
-                    }
+        //                 if (k == n) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
+        //             }
 
-                    if (j == l) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[k] * rvec[m] * rvec[n];
+        //             if (j == l) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[k] * rvec[m] * rvec[n];
 
-                      if (m == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[k];
-                      }
+        //               if (m == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[k];
+        //               }
 
-                      if (k == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[m];
-                      }
+        //               if (k == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[m];
+        //               }
 
-                      if (k == m) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[n];
-                      }
+        //               if (k == m) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[n];
+        //               }
 
-                      if (i == n) {
-                        d6_counter[index] -= g4 * rvec[k] * rvec[m];
+        //               if (i == n) {
+        //                 d6_counter[index] -= g4 * rvec[k] * rvec[m];
 
-                        if (k == m) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (k == m) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (i == m) {
-                        d6_counter[index] -= g4 * rvec[k] * rvec[n];
+        //               if (i == m) {
+        //                 d6_counter[index] -= g4 * rvec[k] * rvec[n];
 
-                        if (k == n) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
-                    }
+        //                 if (k == n) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
+        //             }
 
-                    if (k == l) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[m] * rvec[n];
+        //             if (k == l) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[m] * rvec[n];
 
-                      if (m == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[j];
-                      }
+        //               if (m == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[j];
+        //               }
 
-                      if (j == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[m];
+        //               if (j == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[m];
 
-                        if (k == m) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (i == m) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (j == m) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[n];
-                      }
+        //               if (j == m) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[n];
+        //               }
 
-                      if (i == n) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[m];
+        //               if (i == n) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[m];
 
-                        if (j == m) {
-                          d6_counter[index] -= g3;
-                        }
-                      }
+        //                 if (j == m) {
+        //                   d6_counter[index] -= g3;
+        //                 }
+        //               }
 
-                      if (i == m) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[n];
-                      }
-                    }
+        //               if (i == m) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[n];
+        //               }
+        //             }
 
-                    if (i == m) {
-                      d6_counter[index] -= g5 * rvec[j] * rvec[k] * rvec[l] * rvec[n];
+        //             if (i == m) {
+        //               d6_counter[index] -= g5 * rvec[j] * rvec[k] * rvec[l] * rvec[n];
 
-                      if (l == n) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[k];
-                      }
+        //               if (l == n) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[k];
+        //               }
 
-                      if (k == n) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[l];
-                      }
+        //               if (k == n) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[l];
+        //               }
 
-                      if (j == n) {
-                        d6_counter[index] -= g4 * rvec[k] * rvec[l];
-                      }
-                    }
+        //               if (j == n) {
+        //                 d6_counter[index] -= g4 * rvec[k] * rvec[l];
+        //               }
+        //             }
 
-                    if (j == m) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[k] * rvec[l] * rvec[n];
+        //             if (j == m) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[k] * rvec[l] * rvec[n];
 
-                      if (l == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[k];
-                      }
+        //               if (l == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[k];
+        //               }
 
-                      if (k == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[l];
-                      }
+        //               if (k == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[l];
+        //               }
 
-                      if (i == n) {
-                        d6_counter[index] -= g4 * rvec[k] * rvec[l];
-                      }
-                    }
+        //               if (i == n) {
+        //                 d6_counter[index] -= g4 * rvec[k] * rvec[l];
+        //               }
+        //             }
 
-                    if (k == m) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[l] * rvec[n];
+        //             if (k == m) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[l] * rvec[n];
 
-                      if (l == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[j];
-                      }
+        //               if (l == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[j];
+        //               }
 
-                      if (j == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[l];
-                      }
+        //               if (j == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[l];
+        //               }
 
-                      if (i == n) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[l];
-                      }
-                    }
+        //               if (i == n) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[l];
+        //               }
+        //             }
 
-                    if (l == m) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[k] * rvec[n];
+        //             if (l == m) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[k] * rvec[n];
 
-                      if (k == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[j];
-                      }
+        //               if (k == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[j];
+        //               }
 
-                      if (j == n) {
-                        d6_counter[index] -= g4 * rvec[i] * rvec[k];
-                      }
+        //               if (j == n) {
+        //                 d6_counter[index] -= g4 * rvec[i] * rvec[k];
+        //               }
 
-                      if (i == n) {
-                        d6_counter[index] -= g4 * rvec[j] * rvec[k];
-                      }
-                    }
+        //               if (i == n) {
+        //                 d6_counter[index] -= g4 * rvec[j] * rvec[k];
+        //               }
+        //             }
 
-                    if (i == n) {
-                      d6_counter[index] -= g5 * rvec[j] * rvec[k] * rvec[l] * rvec[m];
-                    }
+        //             if (i == n) {
+        //               d6_counter[index] -= g5 * rvec[j] * rvec[k] * rvec[l] * rvec[m];
+        //             }
 
-                    if (j == n) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[k] * rvec[l] * rvec[m];
-                    }
+        //             if (j == n) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[k] * rvec[l] * rvec[m];
+        //             }
 
-                    if (k == n) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[l] * rvec[m];
-                    }
+        //             if (k == n) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[l] * rvec[m];
+        //             }
 
-                    if (l == n) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[k] * rvec[m];
-                    }
+        //             if (l == n) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[k] * rvec[m];
+        //             }
 
-                    if (m == n) {
-                      d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[k] * rvec[l];
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        //             if (m == n) {
+        //               d6_counter[index] -= g5 * rvec[i] * rvec[j] * rvec[k] * rvec[l];
+        //             }
+        //           }
+        //         }
+        //       }
+        //     }
+        //   }
+        // }
+
+        d6_counter[0] -= g6*rx*rx*rx*rx*rx*rx + 15*g5*rx*rx*rx*rx + 45*g4*rx*rx + 15*g3;
+        d6_counter[1] -= g6*rx*rx*rx*rx*rx*ry + 10*g5*rx*rx*rx*ry + 15*g4*rx*ry; 
+        d6_counter[2] -= g6*rx*rx*rx*rx*rx*rz + 10*g5*rx*rx*rx*rz + 15*g4*rx*rz;
+        d6_counter[3] -= g6*rx*rx*rx*rx*ry*ry + g5*(6*rx*rx*ry*ry + rx*rx*rx*rx) + g4*(6*rx*rx + 3*ry*ry) + 3*g3; 
+        d6_counter[4] -= g6*rx*rx*rx*rx*ry*rz + 6*g5*rx*rx*ry*rz + 3*g4*ry*rz;
+        d6_counter[5] -= g6*rx*rx*rx*rx*rz*rz + g5*(6*rx*rx*rz*rz + rx*rx*rx*rx) + g4*(6*rx*rx + 3*rz*rz) + 3*g3;
+        d6_counter[6] -= g6*rx*rx*rx*ry*ry*ry + g5*(3*rx*ry*ry*ry + 3*rx*rx*rx*ry) + 9*g4*rx*ry;
+        d6_counter[7] -= g6*rx*rx*rx*ry*ry*rz + g5*(3*rx*ry*ry*rz + rx*rx*rx*rz) + 3*g4*rx*rz;
+        d6_counter[8] -= g6*rx*rx*rx*ry*rz*rz + g5*(3*rx*ry*rz*rz + rx*rx*rx*ry) + 3*g4*rx*ry;
+        d6_counter[9] -= g6*rx*rx*rx*rz*rz*rz + g5*(3*rx*rz*rz*rz + 3*rx*rx*rx*rz) + 9*g4*rx*rz;
+        d6_counter[10] -= g6*rx*rx*ry*ry*ry*ry + g5*(6*rx*rx*ry*ry + ry*ry*ry*ry) + g4*(6*ry*ry + 3*rx*rx) + 3*g3;
+        d6_counter[11] -= g6*rx*rx*ry*ry*ry*rz + g5*(3*rx*rx*ry*rz + ry*ry*ry*rz) + 3*g4*ry*rz;
+        d6_counter[12] -= g6*rx*rx*ry*ry*rz*rz + g5*(ry*ry*rz*rz + rx*rx*rz*rz + rx*rx*ry*ry) + g4*(rx*rx + ry*ry + rz*rz) + g3;
+        d6_counter[13] -= g6*rx*rx*ry*rz*rz*rz + g5*(3*rx*rx*ry*rz + ry*rz*rz*rz) + 3*g4*ry*rz;
+        d6_counter[14] -= g6*rx*rx*rz*rz*rz*rz + g5*(6*rx*rx*rz*rz + rz*rz*rz*rz) + g4*(6*rz*rz + 3*rx*rx) + 3*g3;
+        d6_counter[15] -= g6*rx*ry*ry*ry*ry*ry + 10*g5*rx*ry*ry*ry + 15*g4*rx*ry;
+        d6_counter[16] -= g6*rx*ry*ry*ry*ry*rz + 6*g5*rx*ry*ry*rz + 3*g4*rx*rz;
+        d6_counter[17] -= g6*rx*ry*ry*ry*rz*rz + g5*(3*rx*ry*rz*rz + rx*ry*ry*ry) + 3*g4*rx*ry;
+        d6_counter[18] -= g6*rx*ry*ry*rz*rz*rz + g5*(3*rx*ry*ry*rz + rx*rz*rz*rz) + 3*g4*rx*rz;
+        d6_counter[19] -= g6*rx*ry*rz*rz*rz*rz + 6*g5*rx*ry*rz*rz + 3*g4*rx*ry;
+        d6_counter[20] -= g6*rx*rz*rz*rz*rz*rz + 10*g5*rx*rz*rz*rz + 15*g4*rx*rz;
+        d6_counter[21] -= g6*ry*ry*ry*ry*ry*ry + 15*g5*ry*ry*ry*ry + 45*g4*ry*ry + 15*g3;
+        d6_counter[22] -= g6*ry*ry*ry*ry*ry*rz + 10*g5*ry*ry*ry*rz + 15*g4*ry*rz;
+        d6_counter[23] -= g6*ry*ry*ry*ry*rz*rz + g5*(6*ry*ry*rz*rz + ry*ry*ry*ry) + g4*(6*ry*ry + 3*rz*rz) + 3*g3;
+        d6_counter[24] -= g6*ry*ry*ry*rz*rz*rz + g5*(3*ry*rz*rz*rz + 3*ry*ry*ry*rz) + 9*g4*ry*rz;
+        d6_counter[25] -= g6*ry*ry*rz*rz*rz*rz + g5*(6*ry*ry*rz*rz + rz*rz*rz*rz) + g4*(6*rz*rz + 3*ry*ry) + 3*g3;
+        d6_counter[26] -= g6*ry*rz*rz*rz*rz*rz + 10*g5*ry*rz*rz*rz + 15*g4*ry*rz;
+        d6_counter[27] -= g6*rz*rz*rz*rz*rz*rz + 15*g5*rz*rz*rz*rz + 45*g4*rz*rz + 15*g3;
+        
       }
     }
   }
@@ -1550,28 +1630,56 @@ std::vector<double> EnzoMethodEwald::d6(double x, double y, double z) throw()
           double kx = 2.0 * M_PI * nx / Lx;
           double ky = 2.0 * M_PI * ny / Ly;
           double kz = 2.0 * M_PI * nz / Lz;
-          double kvec[3]= {kx, ky, kz};
           double k2 = kx*kx + ky*ky + kz*kz;
           double kdotx = kx*x + ky*y + kz*z;
 
           double k_exp = 4.0*M_PI/box_vol * (exp(-1.0*k2 / (4.0*alpha2)) / k2) * cos(kdotx); 
 
-          for (int n = 0; n < 3; n++) {
-            for (int m = 0; m < 3; m++) {
-              for (int l = 0; l < 3; l++) {
-                for (int k = 0; k < 3; k++) {
-                  for (int j = 0; j < 3; j++) {
-                    for (int i = 0; i < 3; i++) {
+          // for (int n = 0; n < 3; n++) {
+          //   for (int m = 0; m < 3; m++) {
+          //     for (int l = 0; l < 3; l++) {
+          //       for (int k = 0; k < 3; k++) {
+          //         for (int j = 0; j < 3; j++) {
+          //           for (int i = 0; i < 3; i++) {
 
-                      int index = j + 3 * (i + 3 * (k + 3 * l));
+          //             int index = j + 3 * (i + 3 * (k + 3 * l));
 
-                      d6_counter[index] += k_exp * kvec[i] * kvec[j] * kvec[k] * kvec[l] * kvec[m] * kvec[n];
-                    }
-                  }
-                }
-              }
-            }
-          }
+          //             d6_counter[index] += k_exp * kvec[i] * kvec[j] * kvec[k] * kvec[l] * kvec[m] * kvec[n];
+          //           }
+          //         }
+          //       }
+          //     }
+          //   }
+          // }
+
+          d6_counter[0] += k_exp * kx*kx*kx*kx*kx*kx;
+          d6_counter[1] += k_exp * kx*kx*kx*kx*kx*ky;
+          d6_counter[2] += k_exp * kx*kx*kx*kx*kx*kz;
+          d6_counter[3] += k_exp * kx*kx*kx*kx*ky*ky;
+          d6_counter[4] += k_exp * kx*kx*kx*kx*ky*kz;
+          d6_counter[5] += k_exp * kx*kx*kx*kx*kz*kz;
+          d6_counter[6] += k_exp * kx*kx*kx*ky*ky*ky;
+          d6_counter[7] += k_exp * kx*kx*kx*ky*ky*kz;
+          d6_counter[8] += k_exp * kx*kx*kx*ky*kz*kz;
+          d6_counter[9] += k_exp * kx*kx*kx*kz*kz*kz;
+          d6_counter[10] += k_exp * kx*kx*ky*ky*ky*ky;
+          d6_counter[11] += k_exp * kx*kx*ky*ky*ky*kz;
+          d6_counter[12] += k_exp * kx*kx*ky*ky*kz*kz;
+          d6_counter[13] += k_exp * kx*kx*ky*kz*kz*kz;
+          d6_counter[14] += k_exp * kx*kx*kz*kz*kz*kz;
+          d6_counter[15] += k_exp * kx*ky*ky*ky*ky*ky;
+          d6_counter[16] += k_exp * kx*ky*ky*ky*ky*kz;
+          d6_counter[17] += k_exp * kx*ky*ky*ky*kz*kz;
+          d6_counter[18] += k_exp * kx*ky*ky*kz*kz*kz;
+          d6_counter[19] += k_exp * kx*ky*kz*kz*kz*kz;
+          d6_counter[20] += k_exp * kx*kz*kz*kz*kz*kz;
+          d6_counter[21] += k_exp * ky*ky*ky*ky*ky*ky;
+          d6_counter[22] += k_exp * ky*ky*ky*ky*ky*kz;
+          d6_counter[23] += k_exp * ky*ky*ky*ky*kz*kz;
+          d6_counter[24] += k_exp * ky*ky*ky*kz*kz*kz;
+          d6_counter[25] += k_exp * ky*ky*kz*kz*kz*kz;
+          d6_counter[26] += k_exp * ky*kz*kz*kz*kz*kz;
+          d6_counter[27] += k_exp * kz*kz*kz*kz*kz*kz;
         } 
       }
     }

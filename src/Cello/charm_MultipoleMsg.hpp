@@ -49,16 +49,16 @@ public: // attributes
   double com[3];
 
   /// quadrupole moment
-  double quadrupole[9];
+  double quadrupole[6];
 
   /// first Taylor coefficient
   double c1[3];
 
   /// second Taylor coefficient
-  double c2[9];
+  double c2[6];
 
   /// third Taylor coefficient
-  double c3[27];
+  double c3[10];
 
   /// Child indices
   int ic3[3];

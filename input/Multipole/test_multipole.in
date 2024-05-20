@@ -120,9 +120,9 @@ Particle {
 	 theta = 0.0001;
 	 eps0 = 0.0;
 	 r0 = 0.0;
-	 interp_xpoints = 16;
-	 interp_ypoints = 16;
-	 interp_zpoints = 16;
+	 interp_xpoints = 64;
+	 interp_ypoints = 64;
+	 interp_zpoints = 64;
      }
  }
 

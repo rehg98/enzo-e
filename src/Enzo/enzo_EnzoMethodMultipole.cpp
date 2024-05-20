@@ -65,12 +65,12 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
   ScalarDescr * scalar_descr_double = cello::scalar_descr_double();
   i_mass_ = scalar_descr_double->new_value("multipole:mass");
   i_com_ = scalar_descr_double->new_value("multipole:com", 3);
-  i_quadrupole_ = scalar_descr_double->new_value("multipole:quadrupole", 9);
+  i_quadrupole_ = scalar_descr_double->new_value("multipole:quadrupole", 6);
 
   // Initialize Taylor coefficient scalars
   i_c1_ = scalar_descr_double->new_value("multipole:c1", 3);
-  i_c2_ = scalar_descr_double->new_value("multipole:c2", 9);
-  i_c3_ = scalar_descr_double->new_value("multipole:c3", 27);
+  i_c2_ = scalar_descr_double->new_value("multipole:c2", 6);
+  i_c3_ = scalar_descr_double->new_value("multipole:c3", 10);
 
   
   // Declare long long Block Scalar for volume and save scalar index
@@ -170,7 +170,7 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
     com[i]  = 0;   
   }
   
-  for (int i = 0; i < 9; i++){
+  for (int i = 0; i < 6; i++){
     quadrupole[i]  = 0;
   }
 
@@ -178,11 +178,11 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
       c1[i] = 0;
   }
   
-  for (int i = 0; i < 9; i++){
+  for (int i = 0; i < 6; i++){
       c2[i] = 0;
     }
 
-  for (int i = 0; i < 27; i++){
+  for (int i = 0; i < 10; i++){
       c3[i] = 0;
   }
   
@@ -360,7 +360,7 @@ void EnzoMethodMultipole::begin_up_cycle_(EnzoBlock * enzo_block) throw()
     CkPrintf("total mass: %f\n", *mass); 
     CkPrintf("COM: (%f, %f, %f)\n", com[0], com[1], com[2]);
     CkPrintf("quadrupole: ");
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 6; i++) {
       CkPrintf("%f  ", quadrupole[i]);
     }
     CkPrintf("\n");
@@ -544,13 +544,13 @@ void EnzoMethodMultipole::begin_down_cycle_(EnzoBlock * enzo_block) throw()
     CkPrintf("\n");
 
     CkPrintf("c2: ");
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 6; i++) {
       CkPrintf("%f  ", c2[i]);
     }
     CkPrintf("\n");
 
     CkPrintf("c3: ");
-    for (int i = 0; i < 27; i++) {
+    for (int i = 0; i < 10; i++) {
       CkPrintf("%f  ", c3[i]);
     }
     CkPrintf("\n\n");
@@ -570,7 +570,7 @@ void EnzoMethodMultipole::begin_down_cycle_(EnzoBlock * enzo_block) throw()
     CkPrintf("\n");
 
     CkPrintf("c2: ");
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 6; i++) {
       CkPrintf("%f  ", c2[i]);
     }
     CkPrintf("\n\n");
@@ -714,13 +714,16 @@ MultipoleMsg * EnzoMethodMultipole::pack_multipole_(EnzoBlock * enzo_block) thro
  
   msg->mass = *mass;
 
-  for (int i = 0; i < 3; i++) {
-    msg->com[i] = com[i];   // use copy() ?
-  }
+  msg->com[0] = com[0];
+  msg->com[1] = com[1];
+  msg->com[2] = com[2];
 
-  for (int i = 0; i < 9; i++) {
-    msg->quadrupole[i] = quadrupole[i];
-  }
+  msg->quadrupole[0] = quadrupole[0];
+  msg->quadrupole[1] = quadrupole[1];
+  msg->quadrupole[2] = quadrupole[2];
+  msg->quadrupole[3] = quadrupole[3];
+  msg->quadrupole[4] = quadrupole[4];
+  msg->quadrupole[5] = quadrupole[5];
 
   const int level = enzo_block->level();
   if (level > 0) {
@@ -744,21 +747,31 @@ MultipoleMsg * EnzoMethodMultipole::pack_coeffs_(EnzoBlock * enzo_block) throw()
   double * c2 = pc2(enzo_block);
   double * c3 = pc3(enzo_block);
 
-  for (int i = 0; i < 3; i++) {
-    msg->com[i] = com[i];
-  }
+  msg->com[0] = com[0];
+  msg->com[1] = com[1];
+  msg->com[2] = com[2];
 
-  for (int i = 0; i < 3; i++) {
-    msg->c1[i] = c1[i];
-  }
+  msg->c1[0] = c1[0];
+  msg->c1[1] = c1[1];
+  msg->c1[2] = c1[2];
 
-  for (int i = 0; i < 9; i++) {
-    msg->c2[i] = c2[i];
-  }
-  
-  for (int i = 0; i < 27; i++) {
-    msg->c3[i] = c3[i];
-  }
+  msg->c2[0] = c2[0];
+  msg->c2[1] = c2[1];
+  msg->c2[2] = c2[2];
+  msg->c2[3] = c2[3];
+  msg->c2[4] = c2[4];
+  msg->c2[5] = c2[5];
+
+  msg->c3[0] = c3[0];
+  msg->c3[1] = c3[1];
+  msg->c3[2] = c3[2];
+  msg->c3[3] = c3[3];
+  msg->c3[4] = c3[4];
+  msg->c3[5] = c3[5];
+  msg->c3[6] = c3[6];
+  msg->c3[7] = c3[7];
+  msg->c3[8] = c3[8];
+  msg->c3[9] = c3[9];
 
   return msg;
 
@@ -780,19 +793,25 @@ void EnzoMethodMultipole::unpack_multipole_
 
   if (child_mass != 0) {
 
+    // revisit this
     double new_com[3];
     for (int i = 0; i < 3; i++) {
       new_com[i] = (*this_mass * this_com[i] + child_mass * child_com[i]) / (*this_mass + child_mass);
     }
     
-    std::array<double, 9> shifted_this_quadrupole = shift_quadrupole_(this_quadrupole, *this_mass, this_com, new_com);
-    std::array<double, 9> shifted_child_quadrupole = shift_quadrupole_(child_quadrupole, child_mass, child_com, new_com);
-    for (int i = 0; i < 9; i++) {
-        this_quadrupole[i] = shifted_this_quadrupole[i] + shifted_child_quadrupole[i];
-    }
+    std::array<double, 6> shifted_this_quadrupole = shift_quadrupole_(this_quadrupole, *this_mass, this_com, new_com);
+    std::array<double, 6> shifted_child_quadrupole = shift_quadrupole_(child_quadrupole, child_mass, child_com, new_com);
 
-    for (int i = 0; i < 3; i++)
-      this_com[i] = new_com[i];
+    this_quadrupole[0] = shifted_this_quadrupole[0] + shifted_child_quadrupole[0];
+    this_quadrupole[1] = shifted_this_quadrupole[1] + shifted_child_quadrupole[1];
+    this_quadrupole[2] = shifted_this_quadrupole[2] + shifted_child_quadrupole[2];
+    this_quadrupole[3] = shifted_this_quadrupole[3] + shifted_child_quadrupole[3];
+    this_quadrupole[4] = shifted_this_quadrupole[4] + shifted_child_quadrupole[4];
+    this_quadrupole[5] = shifted_this_quadrupole[5] + shifted_child_quadrupole[5];
+
+    this_com[0] = new_com[0];
+    this_com[1] = new_com[1];
+    this_com[2] = new_com[2];
 
     *this_mass += child_mass;
 
@@ -808,39 +827,50 @@ void EnzoMethodMultipole::unpack_coeffs_
   // coefficient data from the current block
   std::vector<double> this_com (pcom(enzo_block), pcom(enzo_block) + 3);
   std::vector<double> this_c1  (pc1(enzo_block), pc1(enzo_block) + 3);
-  std::vector<double> this_c2  (pc2(enzo_block), pc2(enzo_block) + 9);
-  std::vector<double> this_c3  (pc3(enzo_block), pc3(enzo_block) + 27);
+  std::vector<double> this_c2  (pc2(enzo_block), pc2(enzo_block) + 6);
+  std::vector<double> this_c3  (pc3(enzo_block), pc3(enzo_block) + 10);
   
   // copy data from msg to this EnzoBlock
   std::vector<double> parent_com (msg->com, msg->com + 3);
   std::vector<double> parent_c1  (msg->c1, msg->c1 + 3);
-  std::vector<double> parent_c2  (msg->c2, msg->c2 + 9);
-  std::vector<double> parent_c3  (msg->c3, msg->c3 + 27);
+  std::vector<double> parent_c2  (msg->c2, msg->c2 + 6);
+  std::vector<double> parent_c3  (msg->c3, msg->c3 + 10);
 
   std::vector<double> com_shift = subtract_(parent_com, this_com, 3);
 
   std::vector<double> shifted_parent_c1_secondterm = dot_12_(com_shift, parent_c2);
-  std::vector<double> shifted_parent_c1_thirdterm = dot_23_(outer_11_(com_shift, com_shift), dot_scalar_(0.5, parent_c3, 27));
+  std::vector<double> shifted_parent_c1_thirdterm = dot_23_(outer_11_(com_shift, com_shift), dot_scalar_(0.5, parent_c3, 10));
   std::vector<double> shifted_parent_c1 = add_(add_(parent_c1, shifted_parent_c1_secondterm, 3), shifted_parent_c1_thirdterm, 3);
   
   std::vector<double> shifted_parent_c2_secondterm = dot_13_(com_shift, parent_c3);
-  std::vector<double> shifted_parent_c2 = add_(parent_c2, shifted_parent_c2_secondterm, 9);
+  std::vector<double> shifted_parent_c2 = add_(parent_c2, shifted_parent_c2_secondterm, 6);
    
   std::vector<double> new_c1 = add_(this_c1, shifted_parent_c1, 3);   
-  std::vector<double> new_c2 = add_(this_c2, shifted_parent_c2, 9);
-  std::vector<double> new_c3 = add_(this_c3, parent_c3, 27);
+  std::vector<double> new_c2 = add_(this_c2, shifted_parent_c2, 6);
+  std::vector<double> new_c3 = add_(this_c3, parent_c3, 10);
 
-  for (int i = 0; i < 3; i++) {
-    pc1(enzo_block)[i] = new_c1[i];
-  }
+  pc1(enzo_block)[0] = new_c1[0];
+  pc1(enzo_block)[1] = new_c1[1];
+  pc1(enzo_block)[2] = new_c1[2];
+  
+  pc2(enzo_block)[0] = new_c2[0];
+  pc2(enzo_block)[1] = new_c2[1];
+  pc2(enzo_block)[2] = new_c2[2];
+  pc2(enzo_block)[3] = new_c2[3];
+  pc2(enzo_block)[4] = new_c2[4];
+  pc2(enzo_block)[5] = new_c2[5];
 
-  for (int i = 0; i < 9; i++) {
-    pc2(enzo_block)[i] = new_c2[i];
-  }
-
-  for (int i = 0; i < 27; i++) {
-    pc3(enzo_block)[i] = new_c3[i];
-  }
+  pc3(enzo_block)[0] = new_c3[0];
+  pc3(enzo_block)[1] = new_c3[1];
+  pc3(enzo_block)[2] = new_c3[2];
+  pc3(enzo_block)[3] = new_c3[3];
+  pc3(enzo_block)[4] = new_c3[4];
+  pc3(enzo_block)[5] = new_c3[5];
+  pc3(enzo_block)[6] = new_c3[6];
+  pc3(enzo_block)[7] = new_c3[7];
+  pc3(enzo_block)[8] = new_c3[8];
+  pc3(enzo_block)[9] = new_c3[9];
+  
 
   delete msg;
 }
@@ -881,7 +911,7 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
   int dm;
 
   double com_sum[3] = {};
-  double quad_sum[9] = {};
+  double quad_sum[6] = {};
 
   double * mass = pmass(block);
   double * com = pcom(block);
@@ -900,13 +930,20 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
 
         *mass += cell_mass;
 
-        for (int i = 0; i < 3; i++) {
-          com_sum[i] += cell_mass * pos[i];
-        }
+        com_sum[0] += cell_mass * pos[0];
+        com_sum[1] += cell_mass * pos[1];
+        com_sum[2] += cell_mass * pos[2];
 
-        for (int i = 0; i < 9; i++) {
-          quad_sum[i] += cell_mass * pos[i/3] * pos[i%3];
-        }
+        quad_sum[0] += cell_mass * pos[0] * pos[0];
+        quad_sum[1] += cell_mass * pos[0] * pos[1];
+        quad_sum[2] += cell_mass * pos[0] * pos[2];
+        quad_sum[3] += cell_mass * pos[1] * pos[1];
+        quad_sum[4] += cell_mass * pos[1] * pos[2];
+        quad_sum[5] += cell_mass * pos[2] * pos[2];
+
+        // for (int i = 0; i < 6; i++) {
+        //   quad_sum[i] += cell_mass * pos[i/3] * pos[i%3];
+        // }
 
       }
     }
@@ -975,13 +1012,16 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
 
         double pos[3] = {xa[ip*dx], ya[ip*dy], za[ip*dz]};
         
-        for (int i = 0; i < 3; i++) {
-          com_sum[i] += prtmass[ip*dm] * pos[i];
-        }
-
-        for (int i = 0; i < 9; i++) {
-          quad_sum[i] += prtmass[ip*dm] * pos[i/3] * pos[i%3];
-        }
+        com_sum[0] += prtmass[ip*dm] * pos[0];
+        com_sum[1] += prtmass[ip*dm] * pos[1];
+        com_sum[2] += prtmass[ip*dm] * pos[2];
+        
+        quad_sum[0] += prtmass[ip*dm] * pos[0] * pos[0];
+        quad_sum[1] += prtmass[ip*dm] * pos[0] * pos[1];
+        quad_sum[2] += prtmass[ip*dm] * pos[0] * pos[2];
+        quad_sum[3] += prtmass[ip*dm] * pos[1] * pos[1];
+        quad_sum[4] += prtmass[ip*dm] * pos[1] * pos[2];
+        quad_sum[5] += prtmass[ip*dm] * pos[2] * pos[2];
 
       }
     }
@@ -989,13 +1029,16 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
   
   if (*mass != 0) {
 
-    for (int i = 0; i < 3; i++) {
-      com[i] = com_sum[i] / *mass;
-    }
+    com[0] = com_sum[0] / *mass;
+    com[1] = com_sum[1] / *mass;
+    com[2] = com_sum[2] / *mass;
 
-    for (int i = 0; i < 9; i++) {
-      quadrupole[i] = quad_sum[i] - *mass * com[i/3] * com[i%3];
-    }
+    quadrupole[0] = quad_sum[0] - *mass * com[0] * com[0];
+    quadrupole[1] = quad_sum[1] - *mass * com[0] * com[1];
+    quadrupole[2] = quad_sum[2] - *mass * com[0] * com[2];
+    quadrupole[3] = quad_sum[3] - *mass * com[1] * com[1];
+    quadrupole[4] = quad_sum[4] - *mass * com[1] * com[2];
+    quadrupole[5] = quad_sum[5] - *mass * com[2] * com[2];
 
   }
 }
@@ -1054,11 +1097,11 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
 
   double mass = *pmass(block);
   std::vector<double> com (pcom(block), pcom(block) + 3);
-  std::vector<double> quadrupole (pquadrupole(block), pquadrupole(block) + 9);
+  std::vector<double> quadrupole (pquadrupole(block), pquadrupole(block) + 6);
   
   std::vector<double> c1 (pc1(block), pc1(block) + 3);
-  std::vector<double> c2 (pc2(block), pc2(block) + 9);
-  std::vector<double> c3 (pc3(block), pc3(block) + 27);
+  std::vector<double> c2 (pc2(block), pc2(block) + 6);
+  std::vector<double> c3 (pc3(block), pc3(block) + 10);
 
 
   // compute long-range contribution from periodic images of this Block 
@@ -1075,28 +1118,39 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
     CkPrintf("d1_ewald in evaluate_force: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
     
     // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
-    std::vector<double> delta_c1 = add_(dot_scalar_(mass, d1_ewald, 3), dot_23_(quadrupole, dot_scalar_(0.5, d3_ewald, 27)), 3);
-    std::vector<double> delta_c2 = dot_scalar_(mass, d2_ewald, 9);
-    std::vector<double> delta_c3 = dot_scalar_(mass, d3_ewald, 27);
+    std::vector<double> delta_c1 = add_(dot_scalar_(mass, d1_ewald, 3), dot_23_(quadrupole, dot_scalar_(0.5, d3_ewald, 10)), 3);
+    std::vector<double> delta_c2 = dot_scalar_(mass, d2_ewald, 6);
+    std::vector<double> delta_c3 = dot_scalar_(mass, d3_ewald, 10);
 
     CkPrintf("delta_c1 in evaluate_force: %f, %f, %f\n", delta_c1[0], delta_c1[1], delta_c1[2]);
     
     // add the coefficients for the new interaction to the coefficients already associated with this Block
     std::vector<double> new_c1 = add_(c1, delta_c1, 3);  
-    std::vector<double> new_c2 = add_(c2, delta_c2, 9);
-    std::vector<double> new_c3 = add_(c3, delta_c3, 27);
+    std::vector<double> new_c2 = add_(c2, delta_c2, 6);
+    std::vector<double> new_c3 = add_(c3, delta_c3, 10);
 
-    for (int i = 0; i < 3; i++) {
-      c1[i] = new_c1[i];
-    }
+    c1[0] = new_c1[0];
+    c1[1] = new_c1[1];
+    c1[2] = new_c1[2];
+    
+    c2[0] = new_c2[0];
+    c2[1] = new_c2[1];
+    c2[2] = new_c2[2];
+    c2[3] = new_c2[3];
+    c2[4] = new_c2[4];
+    c2[5] = new_c2[5];
 
-    for (int i = 0; i < 9; i++) {
-      c2[i] = new_c2[i];
-    }
+    c3[0] = new_c3[0];
+    c3[1] = new_c3[1];
+    c3[2] = new_c3[2];
+    c3[3] = new_c3[3];
+    c3[4] = new_c3[4];
+    c3[5] = new_c3[5];
+    c3[6] = new_c3[6];
+    c3[7] = new_c3[7];
+    c3[8] = new_c3[8];
+    c3[9] = new_c3[9];
 
-    for (int i = 0; i < 27; i++) {
-      c3[i] = new_c3[i];
-    }
   }
 
   
@@ -1115,7 +1169,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         a[2] = (lo[2] + (iz-gz + 0.5)*hz) - com[2];
         
         std::vector<double> second_term = dot_12_(a, c2);
-        std::vector<double> third_term = dot_23_(outer_11_(a, a), dot_scalar_(0.5, c3, 27));
+        std::vector<double> third_term = dot_23_(outer_11_(a, a), dot_scalar_(0.5, c3, 10));
 
         // how does the code treat G?
         std::vector<double> block_force = add_(subtract_(c1, second_term, 3), third_term, 3);
@@ -1288,7 +1342,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
 
         
         std::vector<double> second_term = dot_12_(a, c2);
-        std::vector<double> third_term = dot_23_(outer_11_(a, a), dot_scalar_(0.5, c3, 27));
+        std::vector<double> third_term = dot_23_(outer_11_(a, a), dot_scalar_(0.5, c3, 10));
 
         // how does the code treat G?
         std::vector<double> block_force = add_(subtract_(c1, second_term, 3), third_term, 3);
@@ -1583,12 +1637,12 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
   
   std::vector<double> com_a (pcom(block), pcom(block) + 3);
   std::vector<double> c1_a  (pc1(block), pc1(block) + 3);
-  std::vector<double> c2_a  (pc2(block), pc2(block) + 9);
-  std::vector<double> c3_a  (pc3(block), pc3(block) + 27);
+  std::vector<double> c2_a  (pc2(block), pc2(block) + 6);
+  std::vector<double> c3_a  (pc3(block), pc3(block) + 10);
 
   double mass_b = msg_b->mass;
   std::vector<double> com_b (msg_b->com, msg_b->com + 3);
-  std::vector<double> quadrupole_b (msg_b->quadrupole, msg_b->quadrupole + 9);
+  std::vector<double> quadrupole_b (msg_b->quadrupole, msg_b->quadrupole + 6);
 
   std::vector<double> rvec (3, 0);
 
@@ -1613,43 +1667,62 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
   double r = sqrt(dot_11_(rvec, rvec));                          // magnitude of displacement vector
 
   std::vector<double> d1 = dot_scalar_(-1.0/pow(r,3), rvec, 3);  // derivative tensor d1
-  std::vector<double> d2 (9, 0);                                 // derivative tensor d2
-  std::vector<double> d3 (27, 0);                                // derivative tensor d3
+  std::vector<double> d2 (6, 0);                                 // derivative tensor d2
+  std::vector<double> d3 (10, 0);                                // derivative tensor d3
           
   // compute the components of d2
   // tensor is symmetric in i and j ==> can just loop over i <= j for second loop
-  for (int j = 0; j < 3; j++) {
-    for (int i = 0; i < 3; i++) {
+  d2[0] = 3.0/(r*r*r*r*r) * rvec[0] * rvec[0] - 1.0/(r*r*r);
+  d2[1] = 3.0/(r*r*r*r*r) * rvec[0] * rvec[1];
+  d2[2] = 3.0/(r*r*r*r*r) * rvec[0] * rvec[2];
+  d2[3] = 3.0/(r*r*r*r*r) * rvec[1] * rvec[1] - 1.0/(r*r*r);
+  d2[4] = 3.0/(r*r*r*r*r) * rvec[1] * rvec[2];
+  d2[5] = 3.0/(r*r*r*r*r) * rvec[2] * rvec[2] - 1.0/(r*r*r);
 
-      d2[3*i + j] = 3.0/pow(r,5) * rvec[i] * rvec[j]; 
+  // for (int j = 0; j < 3; j++) {
+  //   for (int i = 0; i < 3; i++) {
 
-      if (i == j) {
-        d2[3*i + j] -= 1.0/pow(r,3);
-      }
-    }
-  }
+  //     d2[3*i + j] = 3.0/pow(r,5) * rvec[i] * rvec[j]; 
+
+  //     if (i == j) {
+  //       d2[3*i + j] -= 1.0/pow(r,3);
+  //     }
+  //   }
+  // }
+
+  // check this
+  d3[0] = -15.0/(r*r*r*r*r*r*r) * rvec[0] * rvec[0] * rvec[0] + 9.0/(r*r*r*r*r) * rvec[0];
+  d3[1] = -15.0/(r*r*r*r*r*r*r) * rvec[0] * rvec[0] * rvec[1] + 3.0/(r*r*r*r*r) * rvec[1];
+  d3[2] = -15.0/(r*r*r*r*r*r*r) * rvec[0] * rvec[0] * rvec[2] + 3.0/(r*r*r*r*r) * rvec[2];
+  d3[3] = -15.0/(r*r*r*r*r*r*r) * rvec[0] * rvec[1] * rvec[1] + 3.0/(r*r*r*r*r) * rvec[0];
+  d3[4] = -15.0/(r*r*r*r*r*r*r) * rvec[0] * rvec[1] * rvec[2];
+  d3[5] = -15.0/(r*r*r*r*r*r*r) * rvec[0] * rvec[2] * rvec[2] + 3.0/(r*r*r*r*r) * rvec[0];
+  d3[6] = -15.0/(r*r*r*r*r*r*r) * rvec[1] * rvec[1] * rvec[1] + 9.0/(r*r*r*r*r) * rvec[1];
+  d3[7] = -15.0/(r*r*r*r*r*r*r) * rvec[1] * rvec[1] * rvec[2] + 3.0/(r*r*r*r*r) * rvec[2];
+  d3[8] = -15.0/(r*r*r*r*r*r*r) * rvec[1] * rvec[2] * rvec[2] + 3.0/(r*r*r*r*r) * rvec[1];
+  d3[9] = -15.0/(r*r*r*r*r*r*r) * rvec[2] * rvec[2] * rvec[2] + 9.0/(r*r*r*r*r) * rvec[2];
       
   // compute the components of d3
-  for (int k = 0; k < 3; k++) {
-    for (int j = 0; j < 3; j++) {
-      for (int i = 0; i < 3; i++) {
+  // for (int k = 0; k < 3; k++) {
+  //   for (int j = 0; j < 3; j++) {
+  //     for (int i = 0; i < 3; i++) {
 
-        d3[9*k + 3*i + j] = -15.0/pow(r,7) * rvec[i] * rvec[j] * rvec[k];
+  //       d3[9*k + 3*i + j] = -15.0/pow(r,7) * rvec[i] * rvec[j] * rvec[k];
 
-        if (i == j) {
-          d3[9*k + 3*i + j] += 3.0/pow(r,5) * rvec[k];
-        }
+  //       if (i == j) {
+  //         d3[9*k + 3*i + j] += 3.0/pow(r,5) * rvec[k];
+  //       }
 
-        if (j == k) {
-          d3[9*k + 3*i + j] += 3.0/pow(r,5) * rvec[i];
-        }
+  //       if (j == k) {
+  //         d3[9*k + 3*i + j] += 3.0/pow(r,5) * rvec[i];
+  //       }
 
-        if (i == k) {
-          d3[9*k + 3*i + j] += 3.0/pow(r,5) * rvec[j];
-        }
-      }
-    }
-  }
+  //       if (i == k) {
+  //         d3[9*k + 3*i + j] += 3.0/pow(r,5) * rvec[j];
+  //       }
+  //     }
+  //   }
+  // }
 
   if (ewald_ != nullptr) {
 
@@ -1663,29 +1736,29 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
     
     // Combine the derivative tensors from the periodic and non-periodic contributions    
     d1 = add_(d1, d1_ewald, 3);
-    d2 = add_(d2, d2_ewald, 9);
-    d3 = add_(d3, d3_ewald, 27);
+    d2 = add_(d2, d2_ewald, 6);
+    d3 = add_(d3, d3_ewald, 10);
   }
   
   // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
-  std::vector<double> delta_c1 = add_(dot_scalar_(mass_b, d1, 3), dot_23_(quadrupole_b, dot_scalar_(0.5, d3, 27)), 3);
-  std::vector<double> delta_c2 = dot_scalar_(mass_b, d2, 9);
-  std::vector<double> delta_c3 = dot_scalar_(mass_b, d3, 27);
+  std::vector<double> delta_c1 = add_(dot_scalar_(mass_b, d1, 3), dot_23_(quadrupole_b, dot_scalar_(0.5, d3, 10)), 3);
+  std::vector<double> delta_c2 = dot_scalar_(mass_b, d2, 6);
+  std::vector<double> delta_c3 = dot_scalar_(mass_b, d3, 10);
    
   // add the coefficients for the new interaction to the coefficients already associated with this Block
   std::vector<double> new_c1 = add_(c1_a, delta_c1, 3);  
-  std::vector<double> new_c2 = add_(c2_a, delta_c2, 9);
-  std::vector<double> new_c3 = add_(c3_a, delta_c3, 27);
+  std::vector<double> new_c2 = add_(c2_a, delta_c2, 6);
+  std::vector<double> new_c3 = add_(c3_a, delta_c3, 10);
 
   for (int i = 0; i < 3; i++) {
     pc1(block)[i] = new_c1[i];
   }
 
-  for (int i = 0; i < 9; i++) {
+  for (int i = 0; i < 6; i++) {
     pc2(block)[i] = new_c2[i];
   }
 
-  for (int i = 0; i < 27; i++) {
+  for (int i = 0; i < 10; i++) {
     pc3(block)[i] = new_c3[i];
   }
 
@@ -1778,7 +1851,7 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   if (ewald_ != nullptr) {
     SIZE_SCALAR_TYPE(fldsize, double, mass);
     SIZE_ARRAY_TYPE(fldsize, double, com, 3);
-    SIZE_ARRAY_TYPE(fldsize, double, quadrupole, 9);
+    SIZE_ARRAY_TYPE(fldsize, double, quadrupole, 6);
   }
 
   char * fldbuffer = new char[fldsize];
@@ -1798,7 +1871,7 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   if (ewald_ != nullptr) {
     SAVE_SCALAR_TYPE(pc, double, mass);
     SAVE_ARRAY_TYPE(pc, double, com, 3);
-    SAVE_ARRAY_TYPE(pc, double, quadrupole, 9);
+    SAVE_ARRAY_TYPE(pc, double, quadrupole, 6);
   }
 
   int prtsize = particle.data_size();
@@ -2097,21 +2170,21 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
 
     double * com_a = pcom(block);
     std::vector<double> c1_a  (pc1(block), pc1(block) + 3);
-    std::vector<double> c2_a  (pc2(block), pc2(block) + 9);
-    std::vector<double> c3_a  (pc3(block), pc3(block) + 27);
+    std::vector<double> c2_a  (pc2(block), pc2(block) + 6);
+    std::vector<double> c3_a  (pc3(block), pc3(block) + 10);
 
     double mass_b;
     double com_b[3];
-    std::vector<double> quadrupole_b (9, 0);
-    double quadrupole_array[9];
+    std::vector<double> quadrupole_b (6, 0);
+    double quadrupole_array[6];
 
     CkPrintf("is the segfault before load scalar?\n");
     LOAD_SCALAR_TYPE(pc, double, mass_b);
     LOAD_ARRAY_TYPE(pc, double, com_b, 3);
-    LOAD_ARRAY_TYPE(pc, double, quadrupole_array, 9);
+    LOAD_ARRAY_TYPE(pc, double, quadrupole_array, 6);
     CkPrintf("is the segfault after load scalar?\n");
 
-    for (int i=0; i<9; i++) {
+    for (int i=0; i<6; i++) {
       quadrupole_b[i] = quadrupole_array[i];
     }
 
@@ -2140,24 +2213,24 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
     CkPrintf("d1_ewald in interact_direct: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
     
     // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
-    std::vector<double> delta_c1 = add_(dot_scalar_(mass_b, d1_ewald, 3), dot_23_(quadrupole_b, dot_scalar_(0.5, d3_ewald, 27)), 3);
-    std::vector<double> delta_c2 = dot_scalar_(mass_b, d2_ewald, 9);
-    std::vector<double> delta_c3 = dot_scalar_(mass_b, d3_ewald, 27);
+    std::vector<double> delta_c1 = add_(dot_scalar_(mass_b, d1_ewald, 3), dot_23_(quadrupole_b, dot_scalar_(0.5, d3_ewald, 10)), 3);
+    std::vector<double> delta_c2 = dot_scalar_(mass_b, d2_ewald, 6);
+    std::vector<double> delta_c3 = dot_scalar_(mass_b, d3_ewald, 10);
     
     // add the coefficients for the new interaction to the coefficients already associated with this Block
     std::vector<double> new_c1 = add_(c1_a, delta_c1, 3);  
-    std::vector<double> new_c2 = add_(c2_a, delta_c2, 9);
-    std::vector<double> new_c3 = add_(c3_a, delta_c3, 27);
+    std::vector<double> new_c2 = add_(c2_a, delta_c2, 6);
+    std::vector<double> new_c3 = add_(c3_a, delta_c3, 10);
 
     for (int i = 0; i < 3; i++) {
       pc1(block)[i] = new_c1[i];
     }
 
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 6; i++) {
       pc2(block)[i] = new_c2[i];
     }
 
-    for (int i = 0; i < 27; i++) {
+    for (int i = 0; i < 10; i++) {
       pc3(block)[i] = new_c3[i];
     }
   }

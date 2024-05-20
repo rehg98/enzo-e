@@ -33,9 +33,9 @@ public: // interface -- which methods should be public and which protected?
       is_volume_(-1),
       block_volume_(),
       max_volume_(0),
-      interp_xpoints_(4),
-      interp_ypoints_(4),
-      interp_zpoints_(4),
+      interp_xpoints_(16),
+      interp_ypoints_(16),
+      interp_zpoints_(16),
       ewald_(nullptr)
   { }
 
@@ -56,9 +56,9 @@ public: // interface -- which methods should be public and which protected?
       is_volume_(-1),
       block_volume_(),
       max_volume_(0),
-      interp_xpoints_(4),
-      interp_ypoints_(4),
-      interp_zpoints_(4),
+      interp_xpoints_(16),
+      interp_ypoints_(16),
+      interp_zpoints_(16),
       ewald_(nullptr)
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
 
@@ -152,7 +152,7 @@ public: // interface -- which methods should be public and which protected?
     return scalar_data->value(scalar_descr, i_com_);
   }
 
-  /// returns a 9-element array corresponding to the components of the quadrupole tensor
+  /// returns a 6-element array corresponding to the components of the quadrupole tensor
   double * pquadrupole(Block * block)
   {
     ScalarData<double> * scalar_data = block->data()->scalar_data_double();
@@ -168,7 +168,7 @@ public: // interface -- which methods should be public and which protected?
     return scalar_data->value(scalar_descr, i_c1_);
   }
 
-  /// returns a 9-element array
+  /// returns a 6-element array
   double * pc2(Block * block)
   {
     ScalarData<double> * scalar_data = block->data()->scalar_data_double();
@@ -176,7 +176,7 @@ public: // interface -- which methods should be public and which protected?
     return scalar_data->value(scalar_descr, i_c2_);
   }
 
-  /// returns a 27-element array
+  /// returns a 10-element array
   double * pc3(Block * block)
   {
     ScalarData<double> * scalar_data = block->data()->scalar_data_double();
@@ -300,29 +300,44 @@ public:
 
   // to what extent should i consider replacing std::vectors with std::array? Don't know size for some methods
 
-  std::array<double, 9> shift_quadrupole_(double * old_quadrupole, double tot_mass, double * old_com, double * new_com) throw()
+  std::array<double, 6> shift_quadrupole_(double * old_quadrupole, double tot_mass, double * old_com, double * new_com) throw()
   {
     // std::vector<double> new_com_vec (new_com, new_com + 3);
     // std::vector<double> old_com_vec (old_com, old_com + 3);
 
-    std::array<double, 3> disp;
-    disp[0] = new_com[0] - old_com[0];
-    disp[1] = new_com[1] - old_com[1];
-    disp[2] = new_com[2] - old_com[2];
+    double xdisp = new_com[0] - old_com[0];
+    double ydisp = new_com[1] - old_com[1];
+    double zdisp = new_com[2] - old_com[2];
     
-    std::array<double, 9> new_quadrupole{};
-    for (int j = 0; j < 3; j++) {
-      for (int i = 0; i < 3; i++) {
-        new_quadrupole[3*i + j] = old_quadrupole[3*i + j] + tot_mass * disp[i] * disp[j];
-      }
-    }
+    // std::array<double, 9> new_quadrupole{};
+    // for (int j = 0; j < 3; j++) {
+    //   for (int i = 0; i < 3; i++) {
+    //     new_quadrupole[3*i + j] = old_quadrupole[3*i + j] + tot_mass * disp[i] * disp[j];
+    //   }
+    // }
+
+    std::array<double, 6> new_quadrupole{};
+    // for (int j = 0; j < 3; j++) {
+    //   for (int i = 0; i <= j; i++) {
+    //     new_quadrupole[3*i + j] = old_quadrupole[3*i + j] + tot_mass * disp[i] * disp[j];
+    //   }
+    // }
+
+    new_quadrupole[0] = old_quadrupole[0] + tot_mass * xdisp * xdisp;
+    new_quadrupole[1] = old_quadrupole[1] + tot_mass * xdisp * ydisp;
+    new_quadrupole[2] = old_quadrupole[2] + tot_mass * xdisp * zdisp;
+    new_quadrupole[3] = old_quadrupole[3] + tot_mass * ydisp * ydisp;
+    new_quadrupole[4] = old_quadrupole[4] + tot_mass * ydisp * zdisp;
+    new_quadrupole[5] = old_quadrupole[5] + tot_mass * zdisp * zdisp;
     
     return new_quadrupole;
 
   }
 
   // subtract two arrays
+  // we only ever use this with vectors (size=3)
   // any way to do this with arrays? size is not known at compile time
+  // will probably just get rid of this
   static std::vector<double> subtract_(std::vector<double> a, std::vector<double> b, int size) throw()
   {
     // should assert that a and b have size "size"
@@ -337,6 +352,7 @@ public:
   }
 
   // add two arrays
+  // will need to create add_11, add_22, add_33
   static std::vector<double> add_(std::vector<double> a, std::vector<double> b, int size) throw()
   {
     // should assert that a and b have size "size"
@@ -353,13 +369,27 @@ public:
   static std::vector<double> outer_11_(std::vector<double> a, std::vector<double> b) throw()
   {
     // assert that a and b are 3-element vectors 
-    std::vector<double> prod (9, 0);
+    std::vector<double> prod (6, 0);
 
-    for (int j = 0; j < 3; j++) {
-      for (int i = 0; i < 3; i++) {
-        prod[3*i + j] = a[i] * b[j];
-      }
-    }
+    // for (int j = 0; j < 3; j++) {
+    //   for (int i = 0; i < 3; i++) {
+    //     prod[3*i + j] = a[i] * b[j];
+    //   }
+    // }
+
+    // we only ever have to take the outer product of a vector with itself, so should change arguments
+    // for (int j = 0; j < 3; j++) {
+    //   for (int i = 0; i <= j; i++) {
+    //     prod[3*i + j] = a[i] * b[j];
+    //   }
+    // }
+
+    prod[0] = a[0] * b[0];
+    prod[1] = a[0] * b[1];
+    prod[2] = a[0] * b[2];
+    prod[3] = a[1] * b[1];
+    prod[4] = a[1] * b[2];
+    prod[5] = a[2] * b[2];
 
     return prod;
   }
@@ -367,20 +397,44 @@ public:
   // compute the outer product of a vector 'a' with a rank-2 tensor 'b'
   static std::vector<double> outer_12_(std::vector<double> a, std::vector<double> b) throw()
   {
-    std::vector<double> prod (27, 0);
+    // std::vector<double> prod (27, 0);
 
-    for (int k = 0; k < 3; k++) {
-      for (int j = 0; j < 3; j++) {
-        for (int i = 0; i < 3; i++) {
-          prod[9*k + 3*i + j] = a[i] * b[3*j + k];
-        }
-      }
-    }
+    // for (int k = 0; k < 3; k++) {
+    //   for (int j = 0; j < 3; j++) {
+    //     for (int i = 0; i < 3; i++) {
+    //       prod[9*k + 3*i + j] = a[i] * b[3*j + k];
+    //     }
+    //   }
+    // }
+
+    // as with outer_11, outer_12 is only ever symmetric in our cases
+    std::vector<double> prod (10, 0);
+
+    // for (int k = 0; k < 3; k++) {
+    //   for (int j = 0; j <= k; j++) {
+    //     for (int i = 0; i <= j; i++) {
+    //       prod[9*k + 3*i + j] = a[i] * b[3*j + k];
+    //     }
+    //   }
+    // }
+
+    prod[0] = a[0] * b[0];  // 000
+    prod[1] = a[0] * b[1];  // 001
+    prod[2] = a[0] * b[2];  // 002
+    prod[3] = a[0] * b[3];  // 011
+    prod[4] = a[0] * b[4];  // 012
+    prod[5] = a[0] * b[5];  // 022
+    prod[6] = a[1] * b[3];  // 111
+    prod[7] = a[1] * b[4];  // 112
+    prod[8] = a[1] * b[5];  // 122
+    prod[9] = a[2] * b[5];  // 222
+
 
     return prod;
   }
 
   // multiply an array by a scalar
+  // will need to create multiple versions of this for sizes 3, 6, 10
   static std::vector<double> dot_scalar_(double a, std::vector<double> b, int size) throw()
   {
     // double * prod = new double[size];
@@ -396,13 +450,13 @@ public:
   // compute the dot product of two vectors
   static double dot_11_(std::vector<double> a, std::vector<double> b) throw()
   {
-    double prod = 0;
+    // double prod = 0;
 
-    for (int i = 0; i < 3; i++) {
-      prod += a[i] * b[i];
-    }
+    // for (int i = 0; i < 3; i++) {
+    //   prod += a[i] * b[i];
+    // }
 
-    return prod;
+    return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
   }
 
   // compute the dot product of a vector 'a' with a rank-2 tensor 'b'
@@ -411,11 +465,16 @@ public:
     // double * prod = new double[3];
     std::vector<double> prod (3, 0);
 
-    for (int j = 0; j < 3; j++) {
-      for (int i = 0; i < 3; i++) {
-        prod[j] += a[i] * b[3*i + j];
-      }
-    }
+    // for (int j = 0; j < 3; j++) {
+    //   for (int i = 0; i < 3; i++) {
+    //     prod[j] += a[i] * b[3*i + j];
+    //   }
+    // }
+
+    prod[0] = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];   // 00 + 01 + 02
+    prod[1] = a[0]*b[1] + a[1]*b[3] + a[2]*b[4];   // 01 + 11 + 12
+    prod[2] = a[0]*b[2] + a[1]*b[4] + a[2]*b[5];   // 02 + 12 + 22
+    
 
     return prod;
   }
@@ -425,15 +484,22 @@ public:
   {
 
     // double * prod = new double[9];
-    std::vector<double> prod (9, 0);
+    std::vector<double> prod (6, 0);
 
-    for (int k = 0; k < 3; k++) {
-      for (int j = 0; j < 3; j++) {
-        for (int i = 0; i < 3; i++) {
-          prod[3*j + k] += a[i] * b[9*k + 3*i + j];
-        }
-      }
-    }
+    // for (int k = 0; k < 3; k++) {
+    //   for (int j = 0; j < 3; j++) {
+    //     for (int i = 0; i < 3; i++) {
+    //       prod[3*j + k] += a[i] * b[9*k + 3*i + j];
+    //     }
+    //   }
+    // }
+
+    prod[0] = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    prod[1] = a[0]*b[1] + a[1]*b[3] + a[2]*b[4];
+    prod[2] = a[0]*b[2] + a[1]*b[4] + a[2]*b[5];
+    prod[3] = a[0]*b[3] + a[1]*b[6] + a[2]*b[7];
+    prod[4] = a[0]*b[4] + a[1]*b[7] + a[2]*b[8];
+    prod[5] = a[0]*b[5] + a[1]*b[8] + a[2]*b[9];
 
     return prod;
 
@@ -442,17 +508,28 @@ public:
   // compute the dot product of a rank-1 tensor 'a' with a rank-4 tensor 'b'
   static std::vector<double> dot_14_(std::vector<double> a, std::vector<double> b) throw()
   {
-    std::vector<double> prod (27, 0);
+    std::vector<double> prod (10, 0);
 
-    for (int l = 0; l < 3; l++) {
-      for (int k = 0; k < 3; k++) {
-        for (int j = 0; j < 3; j++) {
-          for (int i = 0; i < 3; i++) {
-            prod[k + 3*(j + 3*l)] += a[i] * b[27*l + 9*k + 3*i + j];
-          }
-        }
-      }
-    }
+    // for (int l = 0; l < 3; l++) {
+    //   for (int k = 0; k < 3; k++) {
+    //     for (int j = 0; j < 3; j++) {
+    //       for (int i = 0; i < 3; i++) {
+    //         prod[k + 3*(j + 3*l)] += a[i] * b[27*l + 9*k + 3*i + j];
+    //       }
+    //     }
+    //   }
+    // }
+
+    prod[0] = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    prod[1] = a[0]*b[1] + a[1]*b[3] + a[2]*b[4];
+    prod[2] = a[0]*b[2] + a[1]*b[4] + a[2]*b[5];
+    prod[3] = a[0]*b[3] + a[1]*b[6] + a[2]*b[7];
+    prod[4] = a[0]*b[4] + a[1]*b[7] + a[2]*b[8];
+    prod[5] = a[0]*b[5] + a[1]*b[8] + a[2]*b[9];
+    prod[6] = a[0]*b[6] + a[1]*b[10] + a[2]*b[11];
+    prod[7] = a[0]*b[7] + a[1]*b[11] + a[2]*b[12];
+    prod[8] = a[0]*b[8] + a[1]*b[12] + a[2]*b[13];
+    prod[9] = a[0]*b[9] + a[1]*b[13] + a[2]*b[14];
 
     return prod;
   }
@@ -461,15 +538,17 @@ public:
   // don't really need this (only for d0)
   static double dot_22_(std::vector<double> a, std::vector<double> b) throw()
   {
-    double prod = 0;
+    // double prod = 0;
     
-    for (int j = 0; j < 3; j++) {
-      for (int i = 0; i < 3; i++) {
-        prod += a[3*i + j] * b[3*i + j];
-      }
-    }
+    // for (int j = 0; j < 3; j++) {
+    //   for (int i = 0; i < 3; i++) {
+    //     prod += a[3*i + j] * b[3*i + j];
+    //   }
+    // }
 
-    return prod;
+    return (a[0]*b[0] + 2*a[1]*b[1] + 2*a[2]*b[2] 
+           + a[3]*b[3] + 2*a[4]*b[4] 
+           + a[5]*b[5]);
   }
 
   // compute the dot product of a rank-2 tensor 'a' with a rank-3 tensor 'b'
@@ -477,31 +556,42 @@ public:
   {
     std::vector<double> prod (3, 0);
 
-    for (int k = 0; k < 3; k++) {
-      for (int j = 0; j < 3; j++) {
-        for (int i = 0; i < 3; i++) {
-          prod[k] += a[3*i + j] * b[9*k + 3*i + j];
-        }
-      }
-    }
+    // for (int k = 0; k < 3; k++) {
+    //   for (int j = 0; j < 3; j++) {
+    //     for (int i = 0; i < 3; i++) {
+    //       prod[k] += a[3*i + j] * b[9*k + 3*i + j];
+    //     }
+    //   }
+    // }
 
+    prod[0] = a[0]*b[0] + 2*a[1]*b[1] + 2*a[2]*b[2] + a[3]*b[3] + 2*a[4]*b[4] + a[5]*b[5];
+    prod[1] = a[0]*b[1] + 2*a[1]*b[3] + 2*a[2]*b[4] + a[3]*b[6] + 2*a[4]*b[7] + a[5]*b[8];
+    prod[2] = a[0]*b[2] + 2*a[1]*b[4] + 2*a[2]*b[5] + a[3]*b[7] + 2*a[4]*b[8] + a[5]*b[9];
+ 
     return prod;
   }
 
   // compute the dot product of a rank-2 tensor 'a' with a rank-4 tensor 'b'
   static std::vector<double> dot_24_(std::vector<double> a, std::vector<double> b) throw()
   {
-    std::vector<double> prod (9, 0);
+    std::vector<double> prod (6, 0);
 
-    for (int l = 0; l < 3; l++) {
-      for (int k = 0; k < 3; k++) {
-        for (int j = 0; j < 3; j++) {
-          for (int i = 0; i < 3; i++) {
-            prod[j + 3*i] += a[3*i + j] * b[27*l + 9*k + 3*i + j];
-          }
-        }
-      }
-    }
+    // for (int l = 0; l < 3; l++) {
+    //   for (int k = 0; k < 3; k++) {
+    //     for (int j = 0; j < 3; j++) {
+    //       for (int i = 0; i < 3; i++) {
+    //         prod[j + 3*i] += a[3*i + j] * b[27*l + 9*k + 3*i + j];
+    //       }
+    //     }
+    //   }
+    // }
+
+    prod[0] = a[0]*b[0] + 2*a[1]*b[1] + 2*a[2]*b[2] + a[3]*b[3] + 2*a[4]*b[4] + a[5]*b[5];
+    prod[1] = a[0]*b[1] + 2*a[1]*b[3] + 2*a[2]*b[4] + a[3]*b[6] + 2*a[4]*b[7] + a[5]*b[8];
+    prod[2] = a[0]*b[2] + 2*a[1]*b[4] + 2*a[2]*b[5] + a[3]*b[7] + 2*a[4]*b[8] + a[5]*b[9];
+    prod[3] = a[0]*b[3] + 2*a[1]*b[6] + 2*a[2]*b[7] + a[3]*b[10] + 2*a[4]*b[11] + a[5]*b[12];
+    prod[4] = a[0]*b[4] + 2*a[1]*b[7] + 2*a[2]*b[8] + a[3]*b[11] + 2*a[4]*b[12] + a[5]*b[13];
+    prod[5] = a[0]*b[5] + 2*a[1]*b[8] + 2*a[2]*b[9] + a[3]*b[12] + 2*a[4]*b[13] + a[5]*b[14];
 
     return prod;
   }
@@ -509,19 +599,30 @@ public:
   // compute the dot product of a rank-2 tensor 'a' with a rank-5 tensor 'b'
   static std::vector<double> dot_25_(std::vector<double> a, std::vector<double> b) throw()
   {
-    std::vector<double> prod (27, 0);
+    std::vector<double> prod (10, 0);
 
-    for (int m = 0; m < 3; m++) {
-      for (int l = 0; l < 3; l++) {
-        for (int k = 0; k < 3; k++) {
-          for (int j = 0; j < 3; j++) {
-            for (int i = 0; i < 3; i++) {
-              prod[9*k + 3*i + j] += a[3*i + j] * b[81*m + 27*l + 9*k + 3*i + j];
-            }
-          }
-        }
-      }
-    }
+    // for (int m = 0; m < 3; m++) {
+    //   for (int l = 0; l < 3; l++) {
+    //     for (int k = 0; k < 3; k++) {
+    //       for (int j = 0; j < 3; j++) {
+    //         for (int i = 0; i < 3; i++) {
+    //           prod[9*k + 3*i + j] += a[3*i + j] * b[81*m + 27*l + 9*k + 3*i + j];
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+
+    prod[0] = a[0]*b[0] + 2*a[1]*b[1] + 2*a[2]*b[2] + a[3]*b[3] + 2*a[4]*b[4] + a[5]*b[5];
+    prod[1] = a[0]*b[1] + 2*a[1]*b[3] + 2*a[2]*b[4] + a[3]*b[6] + 2*a[4]*b[7] + a[5]*b[8];
+    prod[2] = a[0]*b[2] + 2*a[1]*b[4] + 2*a[2]*b[5] + a[3]*b[7] + 2*a[4]*b[8] + a[5]*b[9];
+    prod[3] = a[0]*b[3] + 2*a[1]*b[6] + 2*a[2]*b[7] + a[3]*b[10] + 2*a[4]*b[11] + a[5]*b[12];
+    prod[4] = a[0]*b[4] + 2*a[1]*b[7] + 2*a[2]*b[8] + a[3]*b[11] + 2*a[4]*b[12] + a[5]*b[13];
+    prod[5] = a[0]*b[5] + 2*a[1]*b[8] + 2*a[2]*b[9] + a[3]*b[12] + 2*a[4]*b[13] + a[5]*b[14];
+    prod[6] = a[0]*b[6] + 2*a[1]*b[10] + 2*a[2]*b[11] + a[3]*b[15] + 2*a[4]*b[16] + a[5]*b[17];
+    prod[7] = a[0]*b[7] + 2*a[1]*b[11] + 2*a[2]*b[12] + a[3]*b[16] + 2*a[4]*b[17] + a[5]*b[18];
+    prod[8] = a[0]*b[8] + 2*a[1]*b[12] + 2*a[2]*b[13] + a[3]*b[17] + 2*a[4]*b[18] + a[5]*b[19];
+    prod[9] = a[0]*b[9] + 2*a[1]*b[13] + 2*a[2]*b[14] + a[3]*b[18] + 2*a[4]*b[19] + a[5]*b[20];
 
     return prod;
   }
@@ -530,17 +631,19 @@ public:
   // don't really need this (only for d0)
   static double dot_33_(std::vector<double> a, std::vector<double> b) throw()
   {
-    double prod = 0;
+    // double prod = 0;
 
-    for (int k = 0; k < 3; k++) {
-      for (int j = 0; j < 3; j++) {
-        for (int i = 0; i < 3; i++) {
-          prod += a[9*k + 3*i + j] * b[9*k + 3*i + j];
-        }
-      }
-    }
+    // for (int k = 0; k < 3; k++) {
+    //   for (int j = 0; j < 3; j++) {
+    //     for (int i = 0; i < 3; i++) {
+    //       prod += a[9*k + 3*i + j] * b[9*k + 3*i + j];
+    //     }
+    //   }
+    // }
 
-    return prod;
+    return (a[0]*b[0] + 3*a[1]*b[1] + 3*a[2]*b[2]
+           + 3*a[3]*b[3] + 6*a[4]*b[4] + 3*a[5]*b[5]
+           + a[6]*b[6] + 3*a[7]*b[7] + 3*a[8]*b[8] + a[9]*b[9]);
   }
 
   // compute the dot product of a rank-3 tensor 'a' with a rank-4 tensor 'b'
@@ -548,15 +651,19 @@ public:
   {
     std::vector<double> prod (3, 0);
 
-    for (int l = 0; l < 3; l++) {
-      for (int k = 0; k < 3; k++) {
-        for (int j = 0; j < 3; j++) {
-          for (int i = 0; i < 3; i++) {
-            prod[l] += a[9*k + 3*i + j] * b[27*l + 9*k + 3*i + j];
-          }
-        }
-      }
-    }
+    // for (int l = 0; l < 3; l++) {
+    //   for (int k = 0; k < 3; k++) {
+    //     for (int j = 0; j < 3; j++) {
+    //       for (int i = 0; i < 3; i++) {
+    //         prod[l] += a[9*k + 3*i + j] * b[27*l + 9*k + 3*i + j];
+    //       }
+    //     }
+    //   }
+    // }
+
+    prod[0] = a[0]*b[0] + 3*a[1]*b[1] + 3*a[2]*b[2] + 3*a[3]*b[3] + 6*a[4]*b[4] + 3*a[5]*b[5] + a[6]*b[6] + 3*a[7]*b[7] + 3*a[8]*b[8] + a[9]*b[9];
+    prod[1] = a[0]*b[1] + 3*a[1]*b[3] + 3*a[2]*b[4] + 3*a[3]*b[6] + 6*a[4]*b[7] + 3*a[5]*b[8] + a[6]*b[10] + 3*a[7]*b[11] + 3*a[8]*b[12] + a[9]*b[13];
+    prod[2] = a[0]*b[2] + 3*a[1]*b[4] + 3*a[2]*b[5] + 3*a[3]*b[7] + 6*a[4]*b[8] + 3*a[5]*b[9] + a[6]*b[11] + 3*a[7]*b[12] + 3*a[8]*b[13] + a[9]*b[14];
 
     return prod;
   }
@@ -564,19 +671,27 @@ public:
   // compute the dot product of a rank-3 tensor 'a' with a rank-5 tensor 'b'
   static std::vector<double> dot_35_(std::vector<double> a, std::vector<double> b) throw()
   {
-    std::vector<double> prod (9, 0);
+    std::vector<double> prod (6, 0);
 
-    for (int m = 0; m < 3; m++) {
-      for (int l = 0; l < 3; l++) {
-        for (int k = 0; k < 3; k++) {
-          for (int j = 0; j < 3; j++) {
-            for (int i = 0; i < 3; i++) {
-              prod[3*l + m] += a[9*k + 3*i + j] * b[81*m + 27*l + 9*k + 3*i + j];
-            }
-          }
-        }
-      }
-    }
+    // for (int m = 0; m < 3; m++) {
+    //   for (int l = 0; l < 3; l++) {
+    //     for (int k = 0; k < 3; k++) {
+    //       for (int j = 0; j < 3; j++) {
+    //         for (int i = 0; i < 3; i++) {
+    //           prod[3*l + m] += a[9*k + 3*i + j] * b[81*m + 27*l + 9*k + 3*i + j];
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+
+    prod[0] = a[0]*b[0] + 3*a[1]*b[1] + 3*a[2]*b[2] + 3*a[3]*b[3] + 6*a[4]*b[4] + 3*a[5]*b[5] + a[6]*b[6] + 3*a[7]*b[7] + 3*a[8]*b[8] + a[9]*b[9];
+    prod[1] = a[0]*b[1] + 3*a[1]*b[3] + 3*a[2]*b[4] + 3*a[3]*b[6] + 6*a[4]*b[7] + 3*a[5]*b[8] + a[6]*b[10] + 3*a[7]*b[11] + 3*a[8]*b[12] + a[9]*b[13];
+    prod[2] = a[0]*b[2] + 3*a[1]*b[4] + 3*a[2]*b[5] + 3*a[3]*b[7] + 6*a[4]*b[8] + 3*a[5]*b[9] + a[6]*b[11] + 3*a[7]*b[12] + 3*a[8]*b[13] + a[9]*b[14];
+    prod[3] = a[0]*b[3] + 3*a[1]*b[6] + 3*a[2]*b[7] + 3*a[3]*b[10] + 6*a[4]*b[11] + 3*a[5]*b[12] + a[6]*b[15] + 3*a[7]*b[16] + 3*a[8]*b[17] + a[9]*b[18];
+    prod[4] = a[0]*b[4] + 3*a[1]*b[7] + 3*a[2]*b[8] + 3*a[3]*b[11] + 6*a[4]*b[12] + 3*a[5]*b[13] + a[6]*b[16] + 3*a[7]*b[17] + 3*a[8]*b[18] + a[9]*b[19];
+    prod[5] = a[0]*b[5] + 3*a[1]*b[8] + 3*a[2]*b[9] + 3*a[3]*b[12] + 6*a[4]*b[13] + 3*a[5]*b[14] + a[6]*b[17] + 3*a[7]*b[18] + 3*a[8]*b[19] + a[9]*b[20];
+
 
     return prod;
   }
@@ -584,21 +699,33 @@ public:
   // compute the dot product of a rank-3 tensor 'a' with a rank-6 tensor 'b'
   static std::vector<double> dot_36_(std::vector<double> a, std::vector<double> b) throw()
   {
-    std::vector<double> prod (27, 0);
+    std::vector<double> prod (10, 0);
     
-    for (int n = 0; n < 3; n++) {
-      for (int m = 0; m < 3; m++) {
-        for (int l = 0; l < 3; l++) {
-          for (int k = 0; k < 3; k++) {
-            for (int j = 0; j < 3; j++) {
-              for (int i = 0; i < 3; i++) {
-                prod[9*n + 3*l + m] += a[9*k + 3*i + j] * b[243*n + 81*m + 27*l + 9*k + 3*i + j];
-              }
-            }
-          }
-        }
-      }
-    }
+    // for (int n = 0; n < 3; n++) {
+    //   for (int m = 0; m < 3; m++) {
+    //     for (int l = 0; l < 3; l++) {
+    //       for (int k = 0; k < 3; k++) {
+    //         for (int j = 0; j < 3; j++) {
+    //           for (int i = 0; i < 3; i++) {
+    //             prod[9*n + 3*l + m] += a[9*k + 3*i + j] * b[243*n + 81*m + 27*l + 9*k + 3*i + j];
+    //           }
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+
+    prod[0] = a[0]*b[0] + 3*a[1]*b[1] + 3*a[2]*b[2] + 3*a[3]*b[3] + 6*a[4]*b[4] + 3*a[5]*b[5] + a[6]*b[6] + 3*a[7]*b[7] + 3*a[8]*b[8] + a[9]*b[9];
+    prod[1] = a[0]*b[1] + 3*a[1]*b[3] + 3*a[2]*b[4] + 3*a[3]*b[6] + 6*a[4]*b[7] + 3*a[5]*b[8] + a[6]*b[10] + 3*a[7]*b[11] + 3*a[8]*b[12] + a[9]*b[13];
+    prod[2] = a[0]*b[2] + 3*a[1]*b[4] + 3*a[2]*b[5] + 3*a[3]*b[7] + 6*a[4]*b[8] + 3*a[5]*b[9] + a[6]*b[11] + 3*a[7]*b[12] + 3*a[8]*b[13] + a[9]*b[14];
+    prod[3] = a[0]*b[3] + 3*a[1]*b[6] + 3*a[2]*b[7] + 3*a[3]*b[10] + 6*a[4]*b[11] + 3*a[5]*b[12] + a[6]*b[15] + 3*a[7]*b[16] + 3*a[8]*b[17] + a[9]*b[18];
+    prod[4] = a[0]*b[4] + 3*a[1]*b[7] + 3*a[2]*b[8] + 3*a[3]*b[11] + 6*a[4]*b[12] + 3*a[5]*b[13] + a[6]*b[16] + 3*a[7]*b[17] + 3*a[8]*b[18] + a[9]*b[19];
+    prod[5] = a[0]*b[5] + 3*a[1]*b[8] + 3*a[2]*b[9] + 3*a[3]*b[12] + 6*a[4]*b[13] + 3*a[5]*b[14] + a[6]*b[17] + 3*a[7]*b[18] + 3*a[8]*b[19] + a[9]*b[20];
+    prod[6] = a[0]*b[6] + 3*a[1]*b[10] + 3*a[2]*b[11] + 3*a[3]*b[15] + 6*a[4]*b[16] + 3*a[5]*b[17] + a[6]*b[21] + 3*a[7]*b[22] + 3*a[8]*b[23] + a[9]*b[24];
+    prod[7] = a[0]*b[7] + 3*a[1]*b[11] + 3*a[2]*b[12] + 3*a[3]*b[16] + 6*a[4]*b[17] + 3*a[5]*b[18] + a[6]*b[22] + 3*a[7]*b[23] + 3*a[8]*b[24] + a[9]*b[25];
+    prod[8] = a[0]*b[8] + 3*a[1]*b[12] + 3*a[2]*b[13] + 3*a[3]*b[17] + 6*a[4]*b[18] + 3*a[5]*b[19] + a[6]*b[23] + 3*a[7]*b[24] + 3*a[8]*b[25] + a[9]*b[26];
+    prod[9] = a[0]*b[9] + 3*a[1]*b[13] + 3*a[2]*b[14] + 3*a[3]*b[18] + 6*a[4]*b[19] + 3*a[5]*b[20] + a[6]*b[24] + 3*a[7]*b[25] + 3*a[8]*b[26] + a[9]*b[27];
+
 
     return prod;
   }
