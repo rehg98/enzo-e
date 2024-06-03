@@ -1115,7 +1115,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
 
     CkPrintf("ewald in evaluate_force\n");
 
-    
+    // I think there's a problem here!
     std::vector<double> d1_ewald = ewald_->interp_d1(0, 0, 0); // d1 contribution from periodicity
     std::vector<double> d2_ewald = ewald_->interp_d2(0, 0, 0); // d2 contribution from periodicity
     std::vector<double> d3_ewald = ewald_->interp_d3(0, 0, 0); // d3 contribution from periodicity
@@ -1129,8 +1129,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
     std::vector<double> delta_c3 = dot_scalar_(mass, d3_ewald, 10);
 
     CkPrintf("delta_c1 in evaluate_force: %f, %f, %f\n", delta_c1[0], delta_c1[1], delta_c1[2]);
-    CkPrintf("delta_c2: %f, %f, %f, %f, %f, %f\n", delta_c2[0], delta_c2[1], delta_c2[2], delta_c2[3], delta_c2[4], delta_c2[5]);
-    CkPrintf("delta_c3: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", delta_c3[0], delta_c3[1], delta_c3[2], delta_c3[3], delta_c3[4], delta_c3[5], delta_c3[6], delta_c3[7], delta_c3[8], delta_c3[9]);
+    CkPrintf("delta_c2 in evaluate_force: %f, %f, %f, %f, %f, %f\n", delta_c2[0], delta_c2[1], delta_c2[2], delta_c2[3], delta_c2[4], delta_c2[5]);
+    CkPrintf("delta_c3 in evaluate_force: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", delta_c3[0], delta_c3[1], delta_c3[2], delta_c3[3], delta_c3[4], delta_c3[5], delta_c3[6], delta_c3[7], delta_c3[8], delta_c3[9]);
 
     
     // add the coefficients for the new interaction to the coefficients already associated with this Block
@@ -2240,11 +2240,16 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
     std::vector<double> d3_ewald = ewald_->interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
 
     CkPrintf("d1_ewald in interact_direct: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
+    CkPrintf("d2_ewald in interact_direct: %f, %f, %f, %f, %f, %f\n", d2_ewald[0], d2_ewald[1], d2_ewald[2], d2_ewald[3], d2_ewald[4], d2_ewald[5]);
     
     // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
     std::vector<double> delta_c1 = add_(dot_scalar_(mass_b, d1_ewald, 3), dot_23_(quadrupole_b, dot_scalar_(0.5, d3_ewald, 10)), 3);
     std::vector<double> delta_c2 = dot_scalar_(mass_b, d2_ewald, 6);
     std::vector<double> delta_c3 = dot_scalar_(mass_b, d3_ewald, 10);
+
+    CkPrintf("c1 in interact_direct: %f, %f, %f\n", delta_c1[0], delta_c1[1], delta_c1[2]);
+    CkPrintf("c2 in interact_direct: %f, %f, %f, %f, %f, %f\n", delta_c2[0], delta_c2[1], delta_c2[2], delta_c2[3], delta_c2[4], delta_c2[5]);
+    CkPrintf("c3 in interact_direct: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", delta_c3[0], delta_c3[1], delta_c3[2], delta_c3[3], delta_c3[4], delta_c3[5], delta_c3[6], delta_c3[7], delta_c3[8], delta_c3[9]);
     
     // add the coefficients for the new interaction to the coefficients already associated with this Block
     std::vector<double> new_c1 = add_(c1_a, delta_c1, 3);  
