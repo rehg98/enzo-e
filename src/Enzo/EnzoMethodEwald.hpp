@@ -59,19 +59,21 @@ public:
     cello::hierarchy()->lower(&lox, &loy, &loz);
     cello::hierarchy()->upper(&hix, &hiy, &hiz);
 
-    double dx = (hix - lox) / interp_xpoints_;
-    double dy = (hiy - loy) / interp_ypoints_;
-    double dz = (hiz - loz) / interp_zpoints_;
+    double dx = (hix - lox) / (interp_xpoints_ - 1);
+    double dy = (hiy - loy) / (interp_ypoints_ - 1);
+    double dz = (hiz - loz) / (interp_zpoints_ - 1);
 
-    int ix = floor((x-lox)/dx);
-    int iy = floor((y-loy)/dy);
-    int iz = floor((z-loz)/dz);
+    int ix = (int)((x-lox)/dx);
+    int iy = (int)((y-loy)/dy);
+    int iz = (int)((z-loz)/dz);
 
     *i = ix + interp_xpoints_ * (iy + iz * interp_ypoints_);
 
-    *interp_x = lox + (ix + 0.5)*dx;
-    *interp_y = loy + (iy + 0.5)*dy;
-    *interp_z = loz + (iz + 0.5)*dz;
+    *interp_x = lox + ix*dx;
+    *interp_y = loy + iy*dy;
+    *interp_z = loz + iz*dz;
+
+    CkPrintf("%f, %f, %f, %d, %f, %f, %f\n", x, y, z, *i, *interp_x, *interp_y, *interp_z);
 
     return;
   }

@@ -35,7 +35,7 @@ EnzoMethodEwald::EnzoMethodEwald (int interp_xpoints, int interp_ypoints, int in
   // EnzoMethodEwald constructor is called in *compute* of EnzoMethodMultipole
   
 
-  CkPrintf("before init interpolate\n");
+  //CkPrintf("before init interpolate\n");
 
   init_interpolate_();
 
@@ -56,6 +56,9 @@ void EnzoMethodEwald::init_interpolate_() throw()
   
   hierarchy->lower(&lox, &loy, &loz);
   hierarchy->upper(&hix, &hiy, &hiz);
+  //loz = 0.5; 
+  //hiz = 0.5;
+  // CkPrintf("in init interpolate: %f, %f", loz, hiz);
 
   // cello::hierarchy()->lower(&lox, &loy);
   // cello::hierarchy()->upper(&hix, &hiy);
@@ -63,20 +66,24 @@ void EnzoMethodEwald::init_interpolate_() throw()
   // double lox = -0.5; double loy = -0.5; double loz = 0.5;
   // double hix = 0.5; double hiy = 0.5; double hiz = 0.5;
 
-  double dx = (hix - lox) / interp_xpoints_;
-  double dy = (hiy - loy) / interp_ypoints_;
-  double dz = (hiz - loz) / interp_zpoints_;
+  // what to do if only 1 interp point in a given direction?
+  double dx = (hix - lox) / (interp_xpoints_ - 1);
+  double dy = (hiy - loy) / (interp_ypoints_ - 1);
+  double dz = (hiz - loz) / (interp_zpoints_ - 1);
 
+  // do we need to do this full loop? could we just do a single octant? 
   for (int iz = 0; iz < interp_zpoints_; iz++) {
     for (int iy = 0; iy < interp_ypoints_; iy++) {
       for (int ix = 0; ix < interp_xpoints_; ix++) {
         
         int i = ix + interp_xpoints_ * (iy + iz * interp_ypoints_);
-        double x = lox + (ix + 0.5)*dx;  // do I want interp points to be at cell centers or at grid points?
-        double y = loy + (iy + 0.5)*dy;
-        double z = loz + (iz + 0.5)*dz; 
+        double x = lox + ix*dx;  
+        double y = loy + iy*dy;
+        double z = loz + iz*dz;
 
-        d0_array_[i] = d0(x,y,z);   // d0 is not necessary
+        if (i == 2015) CkPrintf("x, y, z: %f, %f, %f\n", x, y, z);
+
+        d0_array_[i] = d0(x, y, z);   // d0 is not necessary
 
         d1_array_[i] = d1(x, y, z);
 
@@ -138,6 +145,7 @@ std::vector<double> EnzoMethodEwald::interp_d1(double x, double y, double z) thr
   // std::array<double, 10> delta_r3 = outer_12_(delta_r, delta_r2);
 
   std::vector<double> delta_r = {x - interp_x, y - interp_y, z - interp_z};
+  // std::vector<double> delta_r = {x - interp_x, y - interp_y, 0};
   std::vector<double> delta_r2 = EnzoMethodMultipole::outer_11_(delta_r, delta_r);
   std::vector<double> delta_r3 = EnzoMethodMultipole::outer_12_(delta_r, delta_r2);
 
@@ -164,12 +172,13 @@ std::vector<double> EnzoMethodEwald::interp_d2(double x, double y, double z) thr
   int i;
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
-    
+  CkPrintf("i, interp_x, interp_y: %d, %f, %f\n", i, interp_x, interp_y);
   // std::array<double, 3> delta_r = {x - interp_x, y - interp_y, z - interp_z};
   // std::array<double, 6> delta_r2 = outer_11_(delta_r, delta_r);
   // std::array<double, 10> delta_r3 = outer_12_(delta_r, delta_r2);
 
   std::vector<double> delta_r = {x - interp_x, y - interp_y, z - interp_z};
+  // std::vector<double> delta_r = {x - interp_x, y - interp_y, 0};
   std::vector<double> delta_r2 = EnzoMethodMultipole::outer_11_(delta_r, delta_r);
   std::vector<double> delta_r3 = EnzoMethodMultipole::outer_12_(delta_r, delta_r2);
 
@@ -183,8 +192,13 @@ std::vector<double> EnzoMethodEwald::interp_d2(double x, double y, double z) thr
   std::vector<double> second_term = EnzoMethodMultipole::dot_scalar_(0.5, EnzoMethodMultipole::dot_24_(delta_r2, d4_array_[i]), 6);
   std::vector<double> third_term = EnzoMethodMultipole::dot_scalar_(1.0/6.0, EnzoMethodMultipole::dot_35_(delta_r3, d5_array_[i]), 6);
 
-  std::vector<double> zero_plus_one = EnzoMethodMultipole::add_(zeroth_term, first_term, 9);
-  std::vector<double> two_plus_three = EnzoMethodMultipole::add_(second_term, third_term, 9);
+  CkPrintf("0th term: %f\n", zeroth_term[0]);
+  CkPrintf("1st term: %f\n", first_term[0]);
+  CkPrintf("2nd term: %f\n", second_term[0]);
+  CkPrintf("3rd term: %f\n", third_term[0]);
+
+  std::vector<double> zero_plus_one = EnzoMethodMultipole::add_(zeroth_term, first_term, 6);
+  std::vector<double> two_plus_three = EnzoMethodMultipole::add_(second_term, third_term, 6);
 
   return EnzoMethodMultipole::add_(zero_plus_one, two_plus_three, 6);
   
@@ -202,6 +216,7 @@ std::vector<double> EnzoMethodEwald::interp_d3(double x, double y, double z) thr
   // std::array<double, 10> delta_r3 = outer_12_(delta_r, delta_r2);
 
   std::vector<double> delta_r = {x - interp_x, y - interp_y, z - interp_z};
+  // std::vector<double> delta_r = {x - interp_x, y - interp_y, 0};
   std::vector<double> delta_r2 = EnzoMethodMultipole::outer_11_(delta_r, delta_r);
   std::vector<double> delta_r3 = EnzoMethodMultipole::outer_12_(delta_r, delta_r2);
 
@@ -236,11 +251,24 @@ double EnzoMethodEwald::d0(double x, double y, double z) throw()
 
   double d0_counter = 0;
 
-  int Lx, Ly, Lz;
-  cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
+  Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+  double lox, loy, loz; 
+  double hix, hiy, hiz;
+  hierarchy->lower(&lox, &loy, &loz);
+  hierarchy->upper(&hix, &hiy, &hiz);
 
-  int box_vol = Lx * Ly * Lz;
-  double alpha = 1.0 / (2.0 * pow(box_vol, 1./3)); // gadget code has 2.0 / pow(box_vol, 1./3.), but gadget paper suggests 1/(2L)
+  double Lx = hix - lox;
+  double Ly = hiy - loy;
+  double Lz = hiz - loz;
+  double box_vol = Lx * Ly * Lz;
+  //cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
+
+  
+  // gadget code has alpha = 2.0 / pow(box_vol, 1./3.), but gadget paper suggests 1/(2L)
+  // double alpha = 1.0 / (2.0 * pow(box_vol, 1./3)); 
+  double alpha = 2.0 / pow(box_vol, 1./3.); 
+  
+  
   double alpha2 = alpha * alpha;
 
   // sum in real space -- any way to remove these loops?
@@ -261,12 +289,12 @@ double EnzoMethodEwald::d0(double x, double y, double z) throw()
         else {
           
           // Taylor expand if r is close to 0
-          if ((alpha * r) < 0.1) {
-            g0 = 2.0 * alpha / sqrt(M_PI) * (1.0 - pow(alpha * r, 2) / 3.0 + pow(alpha * r, 4) / 10.0 - pow(alpha * r, 6) / 42.0 
+          if ((alpha * r) < 0.5) {
+            g0 = -2.0 * alpha / sqrt(M_PI) * (1.0 - pow(alpha * r, 2) / 3.0 + pow(alpha * r, 4) / 10.0 - pow(alpha * r, 6) / 42.0 
                                             + pow(alpha * r, 8) / 216.0 - pow(alpha * r, 10) / 1320.0);
           }
           else { // incorporate Newtonian 1/r term
-            g0 = erf(alpha*r)/r; // 1/r - erfc(alpha*r) / r;
+            g0 = -erf(alpha*r)/r; // 1/r - erfc(alpha*r) / r;
           }
         }
 
@@ -312,11 +340,20 @@ std::vector<double> EnzoMethodEwald::d1(double x, double y, double z) throw()
 
   std::vector<double> d1_counter (3, 0);
 
-  int Lx, Ly, Lz;
-  cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
+  Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+  double lox, loy, loz; 
+  double hix, hiy, hiz;
+  hierarchy->lower(&lox, &loy, &loz);
+  hierarchy->upper(&hix, &hiy, &hiz);
 
-  int box_vol = Lx * Ly * Lz;
-  double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double Lx = hix - lox;
+  double Ly = hiy - loy;
+  double Lz = hiz - loz;
+  double box_vol = Lx * Ly * Lz;
+
+
+  // double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double alpha = 2.0 / pow(box_vol, 1./3.);
   double alpha2 = alpha * alpha;
 
   // sum in real space
@@ -328,22 +365,27 @@ std::vector<double> EnzoMethodEwald::d1(double x, double y, double z) throw()
         double ry = y + ny * Ly;
         double rz = z + nz * Lz;
         double r = sqrt(rx*rx + ry*ry + rz*rz);
+        if (r==0) CkPrintf("r: %f", r);
         double r2 = r*r;
         double r3 = r*r2;
 
         double g1;
 
-        if (nx != 0 || ny != 0 || nz !=0) {
+        if (nx != 0 || ny != 0 || nz != 0) {
           g1 = (-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (sqrt(M_PI) * r3); 
         }
         else {
           
           // Taylor expand if r is close to 0
-          if ((alpha * r) < 0.1) {
+          if ((alpha * r) < 0.5) {
             // check sign
             g1 = -4.0 * pow(alpha, 3) / sqrt(M_PI) *
                        (-1.0 / 3.0 + pow(alpha * r, 2) / 5.0 - pow(alpha * r, 4) / 14.0 + pow(alpha * r, 6) / 54.0 -
                         pow(alpha * r, 8) / 264.0 + pow(alpha * r, 10) / 1560.0);
+
+            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+              CkPrintf("D1 Taylor: g1, rx, ry, rz: %f, %f, %f, %f\n", g1, rx, ry, rz);
+            }
           }
           else { // incorporate Newtonian 1/r term
             g1 = 1.0/r3 + ((-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) 
@@ -373,7 +415,7 @@ std::vector<double> EnzoMethodEwald::d1(double x, double y, double z) throw()
           double k2 = kx*kx + ky*ky + kz*kz;
           double kdotx = kx*x + ky*y + kz*z;
 
-          double k_exp = 4.0*M_PI/box_vol * (exp(-1.0*k2 / (4.0*alpha2)) / k2) * sin(kdotx); 
+          double k_exp = 4.0*M_PI/box_vol * (exp(-k2 / (4.0*alpha2)) / k2) * sin(kdotx); 
 
           d1_counter[0] += k_exp * kx;
           d1_counter[1] += k_exp * ky;
@@ -395,18 +437,27 @@ std::vector<double> EnzoMethodEwald::d2(double x, double y, double z) throw()
 
   std::vector<double> d2_counter (6, 0);
 
-  int Lx, Ly, Lz;
-  cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
+  Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+  double lox, loy, loz; 
+  double hix, hiy, hiz;
+  hierarchy->lower(&lox, &loy, &loz);
+  hierarchy->upper(&hix, &hiy, &hiz);
 
-  int box_vol = Lx * Ly * Lz;
-  double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double Lx = hix - lox;
+  double Ly = hiy - loy;
+  double Lz = hiz - loz;
+  double box_vol = Lx * Ly * Lz;
+
+  
+  // double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double alpha = 2.0 / pow(box_vol, 1./3.);
   double alpha2 = alpha * alpha;
   double alpha3 = alpha2 * alpha;
 
   // sum in real space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -3; nz <= 3; nz++) {
+    for (int ny = -3; ny <= 3; ny++) {
+      for (int nx = -3; nx <= 3; nx++) {
 
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
@@ -423,11 +474,15 @@ std::vector<double> EnzoMethodEwald::d2(double x, double y, double z) throw()
 
           g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
                 * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+          
+          // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+          //     CkPrintf("Away: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
+          //   }
         }
         else {
           
           // Taylor expand if r is close to 0
-          if ((alpha * r) < 0.1) {
+          if ((alpha * r) < 0.5) {
             g1 = -4.0 * pow(alpha, 3) / sqrt(M_PI) *
                        (-1.0 / 3.0 + pow(alpha * r, 2) / 5.0 - pow(alpha * r, 4) / 14.0 + pow(alpha * r, 6) / 54.0 -
                         pow(alpha * r, 8) / 264.0 + pow(alpha * r, 10) / 1560.0);
@@ -436,6 +491,10 @@ std::vector<double> EnzoMethodEwald::d2(double x, double y, double z) throw()
                        (1.0 / 5.0 - pow(alpha * r, 2) / 7.0 + pow(alpha * r, 4) / 18.0 - pow(alpha * r, 6) / 66.0 +
                         pow(alpha * r, 8) / 312.0 - pow(alpha * r, 10) / 1800.0);
 
+            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+              CkPrintf("D2 Taylor: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
+            }
+
           }
           else { // incorporate Newtonian 1/r term
             g1 = 1.0/r3 + ((-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) 
@@ -443,6 +502,10 @@ std::vector<double> EnzoMethodEwald::d2(double x, double y, double z) throw()
 
             g2 = -3.0/r5 + (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
                 * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+            
+            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+              // CkPrintf("Primary domain: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
+            }
           }
         }
 
@@ -466,6 +529,10 @@ std::vector<double> EnzoMethodEwald::d2(double x, double y, double z) throw()
 
       }
     }
+  }
+
+  if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+    CkPrintf("D2_counter: %f, %f, %f, %f, %f, %f\n", d2_counter[0], d2_counter[1], d2_counter[2], d2_counter[3], d2_counter[4], d2_counter[5]);
   }
   
 
@@ -514,11 +581,20 @@ std::vector<double> EnzoMethodEwald::d3(double x, double y, double z) throw()
 
   std::vector<double> d3_counter (10, 0);
 
-  int Lx, Ly, Lz;
-  cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
+  Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+  double lox, loy, loz; 
+  double hix, hiy, hiz;
+  hierarchy->lower(&lox, &loy, &loz);
+  hierarchy->upper(&hix, &hiy, &hiz);
 
-  int box_vol = Lx * Ly * Lz;
-  double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double Lx = hix - lox;
+  double Ly = hiy - loy;
+  double Lz = hiz - loz;
+  double box_vol = Lx * Ly * Lz;
+
+  
+  // double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double alpha = 2.0 / pow(box_vol, 1./3.);
   double alpha2 = alpha * alpha;
   double alpha3 = alpha2 * alpha;
   double alpha5 = alpha2 * alpha3;
@@ -549,7 +625,7 @@ std::vector<double> EnzoMethodEwald::d3(double x, double y, double z) throw()
         else {
           
           // Taylor expand if r is close to 0
-          if ((alpha * r) < 0.1) {
+          if ((alpha * r) < 0.5) {
             // check signs
             g2 = -8.0 * pow(alpha, 5) / sqrt(M_PI) *
                        (1.0 / 5.0 - pow(alpha * r, 2) / 7.0 + pow(alpha * r, 4) / 18.0 - pow(alpha * r, 6) / 66.0 +
@@ -559,6 +635,9 @@ std::vector<double> EnzoMethodEwald::d3(double x, double y, double z) throw()
                        (-1.0 / 7.0 + pow(alpha * r, 2) / 9.0 - pow(alpha * r, 4) / 22.0 + pow(alpha * r, 6) / 78.0 -
                         pow(alpha * r, 8) / 360.0 + pow(alpha * r, 10) / 2040.0);
 
+            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+              CkPrintf("D3 Taylor: g2, g3, rx, ry, rz: %f, %f, %f, %f, %f\n", g2, g3, rx, ry, rz);
+            }
 
           }
           else { // incorporate Newtonian 1/r term
@@ -663,11 +742,20 @@ std::vector<double> EnzoMethodEwald::d4(double x, double y, double z) throw()
 
   std::vector<double> d4_counter (15, 0);
 
-  int Lx, Ly, Lz;
-  cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
+  Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+  double lox, loy, loz; 
+  double hix, hiy, hiz;
+  hierarchy->lower(&lox, &loy, &loz);
+  hierarchy->upper(&hix, &hiy, &hiz);
 
-  int box_vol = Lx * Ly * Lz;
-  double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double Lx = hix - lox;
+  double Ly = hiy - loy;
+  double Lz = hiz - loz;
+  double box_vol = Lx * Ly * Lz;
+
+
+  // double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double alpha = 2.0 / pow(box_vol, 1./3.);
   double alpha2 = alpha * alpha;
   double alpha3 = alpha2 * alpha;
   double alpha5 = alpha2 * alpha3;
@@ -704,7 +792,7 @@ std::vector<double> EnzoMethodEwald::d4(double x, double y, double z) throw()
         else {
           
           // Taylor expand if r is close to 0
-          if ((alpha * r) < 0.1) {
+          if ((alpha * r) < 0.5) {
             // check signs
             g2 = -8.0 * pow(alpha, 5) / sqrt(M_PI) *
                        (1.0 / 5.0 - pow(alpha * r, 2) / 7.0 + pow(alpha * r, 4) / 18.0 - pow(alpha * r, 6) / 66.0 +
@@ -718,6 +806,9 @@ std::vector<double> EnzoMethodEwald::d4(double x, double y, double z) throw()
                        (1.0 / 9.0 - pow(alpha * r, 2) / 11.0 + pow(alpha * r, 4) / 26.0 - pow(alpha * r, 6) / 90.0 +
                         pow(alpha * r, 8) / 408.0 - pow(alpha * r, 10) / 2280.0);
 
+            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+              CkPrintf("D4 Taylor: g2, g3, g4, rx, ry, rz: %f, %f, %f, %f, %f, %f\n", g2, g3, g4, rx, ry, rz);
+            }
 
           }
           else { // incorporate Newtonian 1/r term
@@ -872,11 +963,20 @@ std::vector<double> EnzoMethodEwald::d5(double x, double y, double z) throw()
 
   std::vector<double> d5_counter (21, 0);
 
-  int Lx, Ly, Lz;
-  cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
+  Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+  double lox, loy, loz; 
+  double hix, hiy, hiz;
+  hierarchy->lower(&lox, &loy, &loz);
+  hierarchy->upper(&hix, &hiy, &hiz);
 
-  int box_vol = Lx * Ly * Lz;
-  double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double Lx = hix - lox;
+  double Ly = hiy - loy;
+  double Lz = hiz - loz;
+  double box_vol = Lx * Ly * Lz;
+
+  
+  // double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double alpha = 2.0 / pow(box_vol, 1./3.);
   double alpha2 = alpha * alpha;
   double alpha3 = alpha2 * alpha;
   double alpha5 = alpha2 * alpha3;
@@ -916,7 +1016,7 @@ std::vector<double> EnzoMethodEwald::d5(double x, double y, double z) throw()
         else {
           
           // Taylor expand if r is close to 0
-          if ((alpha * r) < 0.1) {
+          if ((alpha * r) < 0.5) {
             // check signs
             g3 = -16.0 * pow(alpha, 7) / sqrt(M_PI) *
                        (-1.0 / 7.0 + pow(alpha * r, 2) / 9.0 - pow(alpha * r, 4) / 22.0 + pow(alpha * r, 6) / 78.0 -
@@ -929,6 +1029,10 @@ std::vector<double> EnzoMethodEwald::d5(double x, double y, double z) throw()
             g5 = -64.0 * pow(alpha, 11) / sqrt(M_PI) *
                        (-1.0 / 11.0 + pow(alpha * r, 2) / 13.0 - pow(alpha * r, 4) / 30.0 + pow(alpha * r, 6) / 102.0 -
                         pow(alpha * r, 8) / 456.0 + pow(alpha * r, 10) / 2520.0);
+
+            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+              CkPrintf("D5 Taylor: g3, g4, g5, rx, ry, rz: %f, %f, %f, %f, %f, %f\n", g3, g4, g5, rx, ry, rz);
+            }
           }
 
           else { // incorporate Newtonian 1/r term
@@ -1181,11 +1285,19 @@ std::vector<double> EnzoMethodEwald::d6(double x, double y, double z) throw()
 
   std::vector<double> d6_counter (28, 0);
 
-  int Lx, Ly, Lz;
-  cello::hierarchy()->root_size(&Lx, &Ly, &Lz);
+  Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+  double lox, loy, loz; 
+  double hix, hiy, hiz;
+  hierarchy->lower(&lox, &loy, &loz);
+  hierarchy->upper(&hix, &hiy, &hiz);
 
-  int box_vol = Lx * Ly * Lz;
-  double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double Lx = hix - lox;
+  double Ly = hiy - loy;
+  double Lz = hiz - loz;
+  double box_vol = Lx * Ly * Lz;
+
+  // double alpha = 1.0 / (2.0 * pow(box_vol, 1./3));
+  double alpha = 2.0 / pow(box_vol, 1./3.);
   double alpha2 = alpha * alpha;
   double alpha3 = alpha2 * alpha;
   double alpha5 = alpha2 * alpha3;
@@ -1231,7 +1343,7 @@ std::vector<double> EnzoMethodEwald::d6(double x, double y, double z) throw()
         else {
           
           // Taylor expand if r is close to 0
-          if ((alpha * r) < 0.1) {
+          if ((alpha * r) < 0.5) {
             // check signs
             g3 = -16.0 * pow(alpha, 7) / sqrt(M_PI) *
                        (-1.0 / 7.0 + pow(alpha * r, 2) / 9.0 - pow(alpha * r, 4) / 22.0 + pow(alpha * r, 6) / 78.0 -
@@ -1248,6 +1360,11 @@ std::vector<double> EnzoMethodEwald::d6(double x, double y, double z) throw()
             g6 = -128.0 * pow(alpha, 13) / sqrt(M_PI) *
                        (1.0 / 13.0 - pow(alpha * r, 2) / 15.0 + pow(alpha * r, 4) / 34.0 - pow(alpha * r, 6) / 114.0 +
                         pow(alpha * r, 8) / 504.0 - pow(alpha * r, 10) / 2760.0);
+
+
+            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+              CkPrintf("D6 Taylor: g3, g4, g5, g6, rx, ry, rz: %f, %f, %f, %f, %f, %f, %f\n", g3, g4, g5, g6, rx, ry, rz);
+            }
 
           }
 
