@@ -33,8 +33,7 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
     max_volume_(0),
     interp_xpoints_(interp_xpoints),
     interp_ypoints_(interp_ypoints),
-    interp_zpoints_(interp_zpoints),
-    ewald_(nullptr)
+    interp_zpoints_(interp_zpoints)
 {
 
   cello::define_field ("density");
@@ -76,6 +75,8 @@ EnzoMethodMultipole::EnzoMethodMultipole (double timeStep, double theta, double 
   // Declare long long Block Scalar for volume and save scalar index
   is_volume_ = cello::scalar_descr_long_long()->new_value("solver_fmm_volume");
 
+  ewald_ = nullptr;
+
 }
 
 //----------------------------------------------------------------------
@@ -111,13 +112,13 @@ void EnzoMethodMultipole::pup (PUP::er &p)
   p | interp_ypoints_;
   p | interp_zpoints_;
 
-  bool ewald_is_nullptr = (ewald_ == nullptr);
-  p | ewald_is_nullptr;
-  if (not ewald_is_nullptr) {
-    if (p.isUnpacking())
-      ewald_ = new EnzoMethodEwald();
-    p | *ewald_;
-  }
+  // bool ewald_is_nullptr = (ewald_ == nullptr);
+  // p | ewald_is_nullptr;
+  // if (not ewald_is_nullptr) {
+  //   if (p.isUnpacking())
+  //     ewald_ = new EnzoMethodEwald();
+  //   p | *ewald_;
+  // }
   
 }
 

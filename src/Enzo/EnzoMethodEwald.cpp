@@ -16,26 +16,20 @@
 EnzoMethodEwald::EnzoMethodEwald (int interp_xpoints, int interp_ypoints, int interp_zpoints)
   : interp_xpoints_(interp_xpoints),  // number of interpolation points in the x-direction
     interp_ypoints_(interp_ypoints),  // number of interpolation points in the y-direction
-    interp_zpoints_(interp_zpoints),  // number of interpolation points in the z-direction
-    // d0_array_()  // Nx x Ny x Nz x 1 (on down-sampled grid of dimension Nx x Ny x Nz)
-    d1_array_(),    // Nx x Ny x Nz x 3 
-    d2_array_(),    // Nx x Ny x Nz x 6
-    d3_array_(),    // Nx x Ny x Nz x 10
-    d4_array_(),    // Nx x Ny x Nz x 15
-    d5_array_(),    // Nx x Ny x Nz x 21
-    d6_array_()     // Nx x Ny x Nz x 28
+    interp_zpoints_(interp_zpoints)  // number of interpolation points in the z-direction
     
 { 
   // EnzoMethodEwald constructor is called in *compute* of EnzoMethodMultipole
 
   int tot_points_ = interp_xpoints_ * interp_ypoints_ * interp_zpoints_;
 
-  d1_array_ = CelloView<double, 2> (tot_points_, 3);
-  d2_array_ = CelloView<double, 2> (tot_points_, 6);
-  d3_array_ = CelloView<double, 2> (tot_points_, 10);
-  d4_array_ = CelloView<double, 2> (tot_points_, 15);
-  d5_array_ = CelloView<double, 2> (tot_points_, 21);
-  d6_array_ = CelloView<double, 2> (tot_points_, 28);
+  // d0_array_ = {};    // Nx x Ny x Nz x 1 (on down-sampled grid of dimension Nx x Ny x Nz)
+  d1_array_ = CelloView<double, 2> (tot_points_, 3);  // Nx x Ny x Nz x 3
+  d2_array_ = CelloView<double, 2> (tot_points_, 6);  // Nx x Ny x Nz x 6
+  d3_array_ = CelloView<double, 2> (tot_points_, 10); // Nx x Ny x Nz x 10
+  d4_array_ = CelloView<double, 2> (tot_points_, 15); // Nx x Ny x Nz x 15
+  d5_array_ = CelloView<double, 2> (tot_points_, 21); // Nx x Ny x Nz x 21
+  d6_array_ = CelloView<double, 2> (tot_points_, 28); // Nx x Ny x Nz x 28
   
   init_interpolate_();
 

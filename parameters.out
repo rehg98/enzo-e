@@ -2,7 +2,7 @@
      density {
          field_list = [ "density" ];
          max_coarsen = 0.000000000000000;
-         min_refine = 0.9000000000000000;
+         min_refine = 0.0009000000000000000;
          type = "density";
      };
      list = [ "density" ];
@@ -32,7 +32,7 @@
          acceleration_x = [ 0.000000000000000 ];
          acceleration_y = [ 0.000000000000000 ];
          acceleration_z = [ 0.000000000000000 ];
-         density = [ 1.000000000000000 ];
+         density = [ 0.001000000000000000 ];
      };
  }
 
@@ -46,8 +46,11 @@
      list = [ "multipole" ];
      multipole {
          eps0 = 0.000000000000000;
+         interp_xpoints = 64;
+         interp_ypoints = 64;
+         interp_zpoints = 64;
          r0 = 0.000000000000000;
-         theta = 0.1000000000000000;
+         theta = 0.0001000000000000000;
          timeStep = 10000.00000000000;
      };
  }

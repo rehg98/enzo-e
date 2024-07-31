@@ -122,7 +122,7 @@ Particle {
 	 r0 = 0.0;
 	 interp_xpoints = 64;
 	 interp_ypoints = 64;
-	 interp_zpoints = 2;
+	 interp_zpoints = 64;
      }
  }
 

@@ -35,8 +35,7 @@ public: // interface -- which methods should be public and which protected?
       max_volume_(0),
       interp_xpoints_(16),
       interp_ypoints_(16),
-      interp_zpoints_(16),
-      ewald_(nullptr)
+      interp_zpoints_(16)
   { }
 
   /// Charm++ PUP::able declarations
@@ -58,8 +57,7 @@ public: // interface -- which methods should be public and which protected?
       max_volume_(0),
       interp_xpoints_(16),
       interp_ypoints_(16),
-      interp_zpoints_(16),
-      ewald_(nullptr)
+      interp_zpoints_(16)
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
 
   /// CHARM++ Pack / Unpack function
