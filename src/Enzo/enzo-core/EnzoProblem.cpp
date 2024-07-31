@@ -655,6 +655,10 @@ Method * EnzoProblem::create_method_
 
     method = new EnzoMethodGravity(p_group, index_solver, index_prolong);
 
+  } else if (name == "multipole") {
+
+    method = new EnzoMethodMultipole(p_group);
+
   } else if (name == "mhd_vlct") {
 
     method = new EnzoMethodMHDVlct(p_group, store_fluxes_for_corrections);

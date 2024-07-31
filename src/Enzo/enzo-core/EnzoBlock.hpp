@@ -132,6 +132,19 @@ public: /// entry methods
   /// Synchronize for refresh
   void p_method_gravity_end();
 
+  // EnzoMethodMultipole
+  void p_method_multipole_restrict_recv(MultipoleMsg * msg);
+  void p_method_multipole_prolong_recv(MultipoleMsg * msg);
+  void p_method_multipole_traverse(Index index, int type);
+  void p_method_multipole_interact_approx (MultipoleMsg * msg);
+  void p_method_multipole_interact_approx_send (Index receiver);
+  void p_method_multipole_interact_direct (int fldsize, int prtsize, char * fldbuffer, char * prtbuffer);
+  void p_method_multipole_interact_direct_send (Index receiver);
+  void p_method_multipole_update_volume (Index index, int volume);
+  void r_method_multipole_dualwalk_barrier(CkReductionMsg* msg);
+  void r_method_multipole_traverse_complete(CkReductionMsg * msg);
+    
+
   // EnzoMethodInference
 
   /// Merge inference array creation masks from children

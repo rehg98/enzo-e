@@ -11,6 +11,7 @@ add_library(Enzo_gravity
   EnzoPotentialConfig.hpp
   EnzoMethodBackgroundAcceleration.cpp EnzoMethodBackgroundAcceleration.hpp
   EnzoMethodGravity.cpp EnzoMethodGravity.hpp
+  EnzoMethodMultipole.cpp EnzoMethodMultipole.hpp
   EnzoMethodPmDeposit.cpp EnzoMethodPmDeposit.hpp
   EnzoPhysicsGravity.cpp EnzoPhysicsGravity.hpp
   grid_cic.F

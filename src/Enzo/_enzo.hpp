@@ -40,6 +40,7 @@ enum enzo_sync_id {
   enzo_sync_id_method_gravity,
   enzo_sync_id_method_gravity_continue,
   enzo_sync_id_method_heat,
+  enzo_sync_id_method_multipole,
   enzo_sync_id_method_null,
   enzo_sync_id_method_pm_deposit,
   enzo_sync_id_method_pm_update,
