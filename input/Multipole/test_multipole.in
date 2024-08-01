@@ -45,8 +45,8 @@
 
  Mesh {
      root_rank = 2;
-     root_size   = [ 4, 4];  # total number of cells in root grid
-     root_blocks = [  1,  1 ];  # number of blocks in root grid
+     root_size   = [ 8, 8];  # total number of cells in root grid
+     root_blocks = [  2,  2 ];  # number of blocks in root grid
                                 # (so block size = (64/4,32/2) = (16,16)
  }
 
@@ -122,7 +122,7 @@ Particle {
 	 r0 = 0.0;
 	 interp_xpoints = 64;
 	 interp_ypoints = 64;
-	 interp_zpoints = 64;
+	 interp_zpoints = 2;
      }
  }
 

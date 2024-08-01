@@ -179,16 +179,16 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
 
 
   // for testing with particles, we initialize particles in leaf Blocks  
-  if (block->is_leaf()) {
+  // if (block->is_leaf()) {
 
-    int nprtls = 2; // number of particles
+  //   int nprtls = 2; // number of particles
 
-    // attributes: mass, x, y, z, ax, ay, az
-    double prtls[nprtls][7] = {{10.0, 0.0, 0.0, 0.5, 0, 0, 0},
-                               {0.0, 0.01, 0.01, 0.5, 0, 0, 0}};
+  //   // attributes: mass, x, y, z, ax, ay, az
+  //   double prtls[nprtls][7] = {{10.0, 0.0, 0.0, 0.5, 0, 0, 0},
+  //                              {0.0, 0.01, 0.01, 0.5, 0, 0, 0}};
                                
-    InitializeParticles(block, nprtls, prtls);
-  }
+  //   InitializeParticles(block, nprtls, prtls);
+  // }
 
 
   // is there an easier way to check for periodicity?
@@ -385,15 +385,7 @@ void EnzoBlock::r_method_multipole_dualwalk_barrier(CkReductionMsg* msg)
   EnzoMethodMultipole * method =
     static_cast<EnzoMethodMultipole*> (this->method());
 
-  // I don't actually think we should have this -- might still want long-range interactions in unigrid.
-  // direct interactions should also already be handled in the dual walk?
-  if (cello::hierarchy()->max_level() == 0) {
-    method->begin_down_cycle_(this);
-  }
-
-  else {
-    method->dual_walk_(this);
-  }
+  method->dual_walk_(this);
   
 }
 
@@ -436,9 +428,14 @@ void EnzoMethodMultipole::dual_walk_(EnzoBlock * enzo_block) throw()
 
     else
     { 
-      // start the dual tree walk with two copies of the root
-      int type = enzo_block->is_leaf() ? 1 : 0;
-      enzo::block_array()[index].p_method_multipole_traverse(index, type);
+      // start the dual tree walk with two copies of the root (if the root isn't a leaf)
+
+      if (enzo_block->is_leaf()) {
+	begin_down_cycle_(enzo_block);
+      }
+      else {
+	enzo::block_array()[index].p_method_multipole_traverse(index, 0);
+      }
     }
 
   }
@@ -469,44 +466,6 @@ void EnzoBlock::r_method_multipole_traverse_complete(CkReductionMsg * msg)
 
 void EnzoMethodMultipole::begin_down_cycle_(EnzoBlock * enzo_block) throw() 
 {
-
-  const int level = enzo_block->level();
-
-  // [not just if max_level = 0 -- need to check if there's no refinement at all]
-  // do we need this? isn't this done in the dual tree walk?
-  if (cello::hierarchy()->max_level() == 0) { 
-
-    // loop over all root blocks and compute direct interactions
-
-    const Index& cur_index = enzo_block->index();
-
-    int nx, ny, nz;
-    cello::hierarchy()->root_blocks(&nx, &ny, &nz);
-
-    // CkPrintf("Root blocks: %d, %d, %d\n", nx, ny, nz);
-
-    for (int iaz = 0; iaz < nz; iaz++) {
-      for (int iay = 0; iay < ny; iay++) {
-        for (int iax = 0; iax < nx; iax++) {
-
-          const Index other_ind(iax, iay, iaz);
-
-          if (other_ind == cur_index) {
-            continue;
-          }
-          else {
-            
-            // compute the a->b interaction
-
-            pack_dens_(enzo_block, other_ind);
-            
-          }
-
-        }
-      }
-    }
-  }
-
   
   if (enzo_block->is_leaf()) {
     evaluate_force_(enzo_block);
