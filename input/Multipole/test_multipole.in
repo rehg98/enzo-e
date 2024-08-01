@@ -1,0 +1,135 @@
+
+# Problem: Compute multipoles
+# Author:  Ryan Golant (ryan.golant@columbia.edu)
+#
+# July 19, 2022
+
+#======================================================================
+# PROBLEM DEFINITION
+#======================================================================
+
+ Domain {
+     lower = [ -0.5, -0.5 ];
+     upper = [ 0.5, 0.5 ];
+ }
+
+
+ Initial {
+    list = ["value"];
+
+    value {
+        density = [ 0.001 ];
+        # density = [10.0, y >= 0.0, 0.1];
+	
+	acceleration_x = [ 0.0 ];
+	acceleration_y = [ 0.0 ];
+	acceleration_z = [ 0.0 ];
+    }
+ }
+
+
+ Boundary {
+
+     #type = "reflecting";
+     type = "periodic";
+ }
+
+ Stopping {
+     cycle = 1;
+    # time = 0.10000;
+ }
+
+#======================================================================
+# DISCRETIZATION
+#======================================================================
+
+ Mesh {
+     root_rank = 2;
+     root_size   = [ 4, 4];  # total number of cells in root grid
+     root_blocks = [  1,  1 ];  # number of blocks in root grid
+                                # (so block size = (64/4,32/2) = (16,16)
+ }
+
+ Adapt {
+     list = [ "density" ];
+     # list = [ "slope" ];
+     
+     max_level = 1;
+
+     density {
+         field_list = [ "density" ];
+         max_coarsen = 0.00;
+         min_refine = 0.0009;
+         type = "density";
+	    # type = "slope";
+     }
+ }
+
+ Field {
+     alignment = 8;
+     gamma = 1.4000;
+     ghost_depth = 2;
+     
+     list = [ "density", "acceleration_x", "acceleration_y", "acceleration_z"];
+     
+     padding = 0;
+ }
+
+
+Particle {
+    list = ["star", "trace"];
+
+    star {
+        attributes = [ "x", "double",
+                       "y", "double",
+                       "z", "double",
+                       "ax", "double",
+                       "ay", "double",
+                       "az", "double",
+                       "mass", "double"];
+                       
+        position = [ "x", "y", "z" ];
+        
+        group_list = ["is_gravitating"];
+    }
+
+    trace {
+        attributes = [ "x", "double",
+                       "y", "double",
+                       "z", "double",
+                       "ax", "double",
+                       "ay", "double",
+                       "az", "double"];
+                       
+        position = [ "x", "y", "z" ];
+    }
+  }
+
+#======================================================================
+# COMPUTATION
+#======================================================================
+
+ Method {
+
+     # "multipole": compute gravitational acceleration using FMM
+
+     list = [ "multipole" ];
+
+     multipole {
+         
+	 theta = 0.0001;
+	 eps0 = 0.0;
+	 r0 = 0.0;
+	 interp_xpoints = 64;
+	 interp_ypoints = 64;
+	 interp_zpoints = 64;
+     }
+ }
+
+#======================================================================
+# OUTPUT
+#======================================================================
+
+ Output {
+    list = [];    
+ }
