@@ -9,6 +9,8 @@
 #ifndef ENZO_METHOD_MULTIPOLE_HPP
 #define ENZO_METHOD_MULTIPOLE_HPP
 
+#include "Enzo/gravity/EnzoEwald.hpp"
+
 class EnzoMethodMultipole : public Method {
 
   /// @class    EnzoMethodMultipole
@@ -60,12 +62,12 @@ public: // interface -- which methods should be public and which protected?
   /// CHARM++ Pack / Unpack function
   void pup (PUP::er &p);
 
-  ~EnzoMethodMultipole()
-  {
-    if (ewald_ != nullptr) {
-      delete ewald_;
-    }
-  }
+  // ~EnzoMethodMultipole()
+  // {
+  //   if (ewald_ != nullptr) {
+  //     delete ewald_;
+  //  }
+  // }
 
   /// Apply the method to advance a block one timestep 
   virtual void compute( Block * block) throw();
@@ -656,7 +658,7 @@ protected: // attributes
   int interp_zpoints_;
 
   /// object for storing interpolation grid needed for Ewald summation (periodic BCs)
-  EnzoMethodEwald * ewald_;
+  EnzoEwald * ewald_;
 
   /// Maximum timestep
   double dt_max_;

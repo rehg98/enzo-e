@@ -168,10 +168,10 @@ public: // interface
   void size_array (int * nx, int * ny = 0, int * nz = 0) const throw();
 
   /// Compute the lower extent of the Block in the domain
-  void lower(double * xm, double * ym = 0, double * zm = 0) const throw ();
+  void lower(double * xm, double * ym = 0, double * zm = 0, const Index * index = nullptr) const throw ();
 
   /// Compute the upper extent of the Block in the domain
-  void upper(double * xp, double * yp = 0, double * zp = 0) const throw ();
+  void upper(double * xp, double * yp = 0, double * zp = 0, const Index * index = nullptr) const throw ();
 
   /// Return the index of this Block in global coordinates for its level
   void index_global

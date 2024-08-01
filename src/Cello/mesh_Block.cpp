@@ -830,12 +830,13 @@ void Block::size_array (int * nx, int * ny, int * nz) const throw ()
 //----------------------------------------------------------------------
 
 void Block::lower
-(double * xm, double * ym, double * zm) const throw ()
+(double * xm, double * ym, double * zm, const Index * index) const throw ()
 {
+  if (index == nullptr) index = &index_;
   int  ix, iy, iz;
   int  nx, ny, nz;
 
-  index_global (&ix,&iy,&iz,&nx,&ny,&nz);
+  index_global (*index, &ix,&iy,&iz,&nx,&ny,&nz);
 
   Hierarchy * hierarchy = cello::hierarchy();
   double xdm, ydm, zdm;
@@ -859,12 +860,13 @@ void Block::lower
 //----------------------------------------------------------------------
 
 void Block::upper
-(double * xp, double * yp, double * zp) const throw ()
+(double * xp, double * yp, double * zp, const Index * index) const throw ()
 {
+  if (index == nullptr) index = &index_;
   int  ix, iy, iz;
   int  nx, ny, nz;
 
-  index_global (&ix,&iy,&iz,&nx,&ny,&nz);
+  index_global (*index, &ix,&iy,&iz,&nx,&ny,&nz);
 
   Hierarchy * hierarchy = cello::hierarchy();
   double xdm, ydm, zdm;

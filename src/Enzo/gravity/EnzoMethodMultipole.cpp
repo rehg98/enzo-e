@@ -9,7 +9,7 @@
 #include "Cello/cello.hpp"
 #include "Enzo/enzo.hpp"
 #include "Enzo/gravity/gravity.hpp"
-
+#include "Enzo/gravity/EnzoEwald.hpp"
 
 //----------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ EnzoMethodMultipole::EnzoMethodMultipole (ParameterGroup p)
     interp_xpoints_(p.value_integer("interp_xpoints", 64)),
     interp_ypoints_(p.value_integer("interp_ypoints", 64)),
     interp_zpoints_(p.value_integer("interp_zpoints", 64)),
-    dt_max_(p.value_float("dt_max", 1.0e10)
+    dt_max_(p.value_float("dt_max", 1.0e10))
 {
 
   cello::define_field ("density");
@@ -107,7 +107,7 @@ void EnzoMethodMultipole::pup (PUP::er &p)
   // p | ewald_is_nullptr;
   // if (not ewald_is_nullptr) {
   //   if (p.isUnpacking())
-  //     ewald_ = new EnzoMethodEwald();
+  //     ewald_ = new EnzoEwald();
   //   p | *ewald_;
   // }
   
@@ -196,11 +196,11 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
   cello::hierarchy()->get_periodicity(&is_periodic_x, &is_periodic_y, &is_periodic_z);
 
   if ((ewald_ == nullptr) && (is_periodic_x || is_periodic_y || is_periodic_z)) {
-    // Call the primary constructor of EnzoMethodEwald that takes the
+    // Call the primary constructor of EnzoEwald that takes the
     // dimensions of the downsampled interpolation grid as input parameters.
     // Then copy (or move if the compiler is smart) the result into this->ewald_
 
-    ewald_ = new EnzoMethodEwald (interp_xpoints_, interp_ypoints_, interp_zpoints_);
+    ewald_ = new EnzoEwald (interp_xpoints_, interp_ypoints_, interp_zpoints_);
 
   } 
   
@@ -216,7 +216,7 @@ double EnzoMethodMultipole::timestep ( Block * block ) throw()
 
 //----------------------------------------------------------------------
 
-double EnzoMethodGravity::timestep_ (Block * block) throw()
+double EnzoMethodMultipole::timestep_ (Block * block) throw()
 {
   Field field = block->data()->field();
 
