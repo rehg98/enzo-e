@@ -39,7 +39,7 @@
  Mesh : {
      root_blocks = ( 1, 1 );
      root_rank = 2;
-     root_size = ( 4, 4 );
+     root_size = ( 8, 8 );
  }
 
  Method : {
@@ -48,7 +48,7 @@
          eps0 = 0.000000000000000;
          interp_xpoints = 64;
          interp_ypoints = 64;
-         interp_zpoints = 64;
+         interp_zpoints = 2;
          r0 = 0.000000000000000;
          theta = 0.0001000000000000000;
          timeStep = 10000.00000000000;
