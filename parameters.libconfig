@@ -1,0 +1,76 @@
+ Adapt : {
+     density : {
+         field_list = ( "density" );
+         max_coarsen = 0.000000000000000;
+         min_refine = 0.0009000000000000000;
+         type = "density";
+     };
+     list = ( "density" );
+     max_level = 1;
+ }
+
+ Boundary : {
+     type = "periodic";
+ }
+
+ Domain : {
+     lower = ( -0.5000000000000000, -0.5000000000000000 );
+     upper = ( 0.5000000000000000, 0.5000000000000000 );
+ }
+
+ Field : {
+     alignment = 8;
+     gamma = 1.400000000000000;
+     ghost_depth = 2;
+     list = ( "density", "acceleration_x", "acceleration_y", "acceleration_z" );
+     padding = 0;
+ }
+
+ Initial : {
+     list = ( "value" );
+     value : {
+         acceleration_x = ( 0.000000000000000 );
+         acceleration_y = ( 0.000000000000000 );
+         acceleration_z = ( 0.000000000000000 );
+         density = ( 0.001000000000000000 );
+     };
+ }
+
+ Mesh : {
+     root_blocks = ( 2, 2 );
+     root_rank = 2;
+     root_size = ( 8, 8 );
+ }
+
+ Method : {
+     list = ( "multipole" );
+     multipole : {
+         eps0 = 0.000000000000000;
+         interp_xpoints = 64;
+         interp_ypoints = 64;
+         interp_zpoints = 2;
+         r0 = 0.000000000000000;
+         theta = 0.0001000000000000000;
+     };
+ }
+
+ Output : {
+     list = (  );
+ }
+
+ Particle : {
+     list = ( "star", "trace" );
+     star : {
+         attributes = ( "x", "double", "y", "double", "z", "double", "ax", "double", "ay", "double", "az", "double", "mass", "double" );
+         group_list = ( "is_gravitating" );
+         position = ( "x", "y", "z" );
+     };
+     trace : {
+         attributes = ( "x", "double", "y", "double", "z", "double", "ax", "double", "ay", "double", "az", "double" );
+         position = ( "x", "y", "z" );
+     };
+ }
+
+ Stopping : {
+     cycle = 1;
+ }
