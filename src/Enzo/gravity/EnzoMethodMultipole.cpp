@@ -22,8 +22,8 @@ EnzoMethodMultipole::EnzoMethodMultipole (ParameterGroup p)
     block_volume_(),
     max_volume_(0),
     interp_xpoints_(p.value_integer("interp_xpoints", 64)),
-    interp_ypoints_(p.value_integer("interp_ypoints", 64)),
-    interp_zpoints_(p.value_integer("interp_zpoints", 64)),
+    interp_ypoints_(p.value_integer("interp_ypoints", 2)),
+    interp_zpoints_(p.value_integer("interp_zpoints", 2)),
     dt_max_(p.value_float("dt_max", 1.0e10))
 {
 
@@ -132,7 +132,7 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
   
   *mass = 0;
 
-  // is it faster to unravel the loops?
+  // Is this necessary?
   for (int i = 0; i < 3; i++){
     com[i]  = 0;   
   }
@@ -172,7 +172,8 @@ void EnzoMethodMultipole::compute ( Block * block) throw()
   int nb3[3] = {1,1,1};
   cello::hierarchy()->root_blocks(nb3,nb3+1,nb3+2);
   max_volume_ = nb3[0]*nb3[1]*nb3[2];
-  max_volume_ *= block_volume_[0];  // in James' code, this is block_volume_[max_level_ - min_level_]
+  max_volume_ *= block_volume_[0];  // in James' code, this is block_volume_[max_level_ - min_level_]; 
+                                    // the index should probably just be -min_level_
 
   *volume_(block) = 0;
 
@@ -287,7 +288,7 @@ double EnzoMethodMultipole::timestep_ (Block * block) throw()
   
   const double epsilon = mean_cell_width / (dt_max_ * dt_max_);
 
-  // Find th maximum of the square of the magnitude of acceleration
+  // Find the maximum of the square of the magnitude of acceleration
   // across all active cells, then get the square root of this value
   
   double a_mag_2_max = 0.0;
@@ -404,9 +405,13 @@ void EnzoMethodMultipole::dual_walk_(EnzoBlock * enzo_block) throw()
 
     int nx, ny, nz;
     cello::hierarchy()->root_blocks(&nx, &ny, &nz);
+    // const int rank = cello::rank();
+    // if (rank < 3) nz = 1;
+    // if (rank < 2) ny = 1;
 
     if (nx*ny*nz != 1) {
 
+      // can I do iay = iaz, iaz < ny, etc?
       for (int iaz = 0; iaz < nz; iaz++) {
         for (int iay = 0; iay < ny; iay++) {
           for (int iax = 0; iax < nx; iax++) {
@@ -431,10 +436,10 @@ void EnzoMethodMultipole::dual_walk_(EnzoBlock * enzo_block) throw()
       // start the dual tree walk with two copies of the root (if the root isn't a leaf)
 
       if (enzo_block->is_leaf()) {
-	begin_down_cycle_(enzo_block);
+	      begin_down_cycle_(enzo_block);
       }
       else {
-	enzo::block_array()[index].p_method_multipole_traverse(index, 0);
+	      enzo::block_array()[index].p_method_multipole_traverse(index, 0);
       }
     }
 
@@ -530,7 +535,7 @@ void EnzoMethodMultipole::prolong_send(EnzoBlock * enzo_block) throw()
 {
 
   ItChild it_child(cello::rank());
-  int ic3[3]; // do we need to free this memory?
+  int ic3[3]; 
 
   while (it_child.next(ic3)) {
 
@@ -681,11 +686,11 @@ void EnzoMethodMultipole::unpack_multipole_
 
   if (child_mass != 0) {
 
-    // revisit this
     double new_com[3];
-    for (int i = 0; i < 3; i++) {
-      new_com[i] = (*this_mass * this_com[i] + child_mass * child_com[i]) / (*this_mass + child_mass);
-    }
+    double tot_mass = *this_mass + child_mass;
+    new_com[0] = (*this_mass * this_com[0] + child_mass * child_com[0]) / tot_mass;
+    new_com[1] = (*this_mass * this_com[1] + child_mass * child_com[1]) / tot_mass;
+    new_com[2] = (*this_mass * this_com[2] + child_mass * child_com[2]) / tot_mass;
     
     std::array<double, 6> shifted_this_quadrupole = shift_quadrupole_(this_quadrupole, *this_mass, this_com, new_com);
     std::array<double, 6> shifted_child_quadrupole = shift_quadrupole_(child_quadrupole, child_mass, child_com, new_com);
@@ -703,7 +708,6 @@ void EnzoMethodMultipole::unpack_multipole_
 
     *this_mass += child_mass;
 
-    // delete new_com ?
   }
 
   delete msg;
@@ -792,7 +796,7 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
 {  
   Field field = block->data()->field();
 
-  enzo_float * density = (enzo_float *) field.values("density");
+  enzo_float * density = (enzo_float *) field.values("density"); 
 
   int mx, my, mz;
   int gx, gy, gz;
@@ -804,7 +808,6 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
   block->cell_width(&hx, &hy, &hz);
   double cell_vol = hx * hy * hz;
 
-  // do we need to free this?
   double lo[3];
   block->lower(lo, lo+1, lo+2);
 
@@ -823,8 +826,6 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
   double * mass = pmass(block);
   double * com = pcom(block);
   double * quadrupole = pquadrupole(block);
-
-  // should I have an if-statement with "rank" here to separate out 1D, 2D, and 3D?
 
   // loop over cells
   for (int iz = gz; iz < mz-gz; iz++) {
@@ -847,10 +848,6 @@ void EnzoMethodMultipole::compute_multipoles_ (Block * block) throw()
         quad_sum[3] += cell_mass * pos[1] * pos[1];
         quad_sum[4] += cell_mass * pos[1] * pos[2];
         quad_sum[5] += cell_mass * pos[2] * pos[2];
-
-        // for (int i = 0; i < 6; i++) {
-        //   quad_sum[i] += cell_mass * pos[i/3] * pos[i%3];
-        // }
 
       }
     }
@@ -969,22 +966,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
   field.dimensions  (0, &mx, &my, &mz);
   field.ghost_depth (0, &gx, &gy, &gz);
 
-  // std::string string = block->name();
-  // CkPrintf("%s accel\n", string.c_str());
-  // for (int iz = gz; iz < mz-gz; iz++) {
-  //   for (int iy = gy; iy < my-gy; iy++) {
-  //     for (int ix = gx; ix < mx-gx; ix++) {
-        
-  //       double acc = accel_x[ix + mx * (iy + iz * my)];
-
-  //       CkPrintf("(%d, %d, %d): %f  ", ix, iy, iz, acc);
-  //     }
-  //   }
-  // }
-  // CkPrintf("\n\n");
-
+  // hz = 1 by default
   block->cell_width(&hx, &hy, &hz);
-  // hz = 1.0; // this is to make math easier -- delete later
   double cell_vol = hx * hy * hz;
 
   double lo[3];
@@ -1019,11 +1002,6 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
   std::copy(pthis_c1, pthis_c1+3, c1.begin());
   std::copy(pthis_c2, pthis_c2+6, c2.begin());
   std::copy(pthis_c3, pthis_c3+10, c3.begin());
-  
-  // CkPrintf("c1 before evaluate_force: %f, %f, %f\n", c1[0], c1[1], c1[2]);
-  // CkPrintf("c2 before evaluate_force: %f, %f, %f, %f, %f, %f\n", c2[0], c2[1], c2[2], c2[3], c2[4], c2[5]);
-  // CkPrintf("c3 before evaluate_force: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", c3[0], c3[1], c3[2], c3[3], c3[4], c3[5], c3[6], c3[7], c3[8], c3[9]);
-
 
   // compute long-range contribution from periodic images of this Block 
   if (ewald_ != nullptr) {
@@ -1034,17 +1012,14 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
     std::array<double, 6> d2_ewald = ewald_->interp_d2(0, 0, 0); // d2 contribution from periodicity
     std::array<double, 10> d3_ewald = ewald_->interp_d3(0, 0, 0); // d3 contribution from periodicity
 
-    CkPrintf("d1_ewald in evaluate_force: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
-    CkPrintf("d2_ewald in evaluate_force: %f, %f, %f, %f, %f, %f\n", d2_ewald[0], d2_ewald[1], d2_ewald[2], d2_ewald[3], d2_ewald[4], d2_ewald[5]);
-    
     // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
     std::array<double, 3> delta_c1 = add_11_(dot_scalar_1_(mass, d1_ewald), dot_23_(quadrupole, dot_scalar_3_(0.5, d3_ewald)));
     std::array<double, 6> delta_c2 = dot_scalar_2_(mass, d2_ewald);
     std::array<double, 10> delta_c3 = dot_scalar_3_(mass, d3_ewald);
 
-    CkPrintf("delta_c1 in evaluate_force: %f, %f, %f\n", delta_c1[0], delta_c1[1], delta_c1[2]);
-    CkPrintf("delta_c2 in evaluate_force: %f, %f, %f, %f, %f, %f\n", delta_c2[0], delta_c2[1], delta_c2[2], delta_c2[3], delta_c2[4], delta_c2[5]);
-    CkPrintf("delta_c3 in evaluate_force: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", delta_c3[0], delta_c3[1], delta_c3[2], delta_c3[3], delta_c3[4], delta_c3[5], delta_c3[6], delta_c3[7], delta_c3[8], delta_c3[9]);
+    // CkPrintf("delta_c1 in evaluate_force: %f, %f, %f\n", delta_c1[0], delta_c1[1], delta_c1[2]);
+    // CkPrintf("delta_c2 in evaluate_force: %f, %f, %f, %f, %f, %f\n", delta_c2[0], delta_c2[1], delta_c2[2], delta_c2[3], delta_c2[4], delta_c2[5]);
+    // CkPrintf("delta_c3 in evaluate_force: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", delta_c3[0], delta_c3[1], delta_c3[2], delta_c3[3], delta_c3[4], delta_c3[5], delta_c3[6], delta_c3[7], delta_c3[8], delta_c3[9]);
 
     
     // add the coefficients for the new interaction to the coefficients already associated with this Block
@@ -1098,6 +1073,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         std::array<double, 3> block_force = add_11_(subtract_(c1, second_term), third_term);
 
         // subtracting rather than adding since block_force is multiplied by -G 
+        // ADD GRAV CONSTANT HERE
         accel_x[i] -= block_force[0];
         accel_y[i] -= block_force[1];
         accel_z[i] -= block_force[2];
@@ -1190,6 +1166,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
               tot_prt_force[0] += prtcell_force[0];
               tot_prt_force[1] += prtcell_force[1];
               tot_prt_force[2] += prtcell_force[2];
+
+              // ALSO UPDATE GRAVITATING PARTICLE ACCELS HERE?
             }
           }
         }
@@ -1242,26 +1220,11 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         std::array<double, 3> second_term = dot_12_(a, c2);
         std::array<double, 3> third_term = dot_23_(outer_11_(a, a), dot_scalar_3_(0.5, c3));
 
-        // Hierarchy * hierarchy = enzo::simulation()->hierarchy();
-        // double lox, loy, loz; 
-        // double hix, hiy, hiz;
-        // hierarchy->lower(&lox, &loy, &loz);
-        // hierarchy->upper(&hix, &hiy, &hiz);
-
-        // double Lx = hix - lox;
-        // double Ly = hiy - loy;
-        // double Lz = hiz - loz;
-        // CkPrintf("Lx, Ly, Lz: %f, %f, %f\n", Lx, Ly, Lz);
-        // CkPrintf("a[0]: %f\n", a[0]);
-        // CkPrintf("c1: %f, %f, %f\n", c1[0], c1[1], c1[2]);
-        // CkPrintf("c2: %f, %f, %f, %f, %f, %f\n", c2[0], c2[1], c2[2], c2[3], c2[4], c2[5]);
-        // CkPrintf("second_term: %f\n", second_term[0]);
-        // CkPrintf("third_term: %f\n", third_term[0]);
-
         // how does the code treat G?
         std::array<double, 3> block_force = add_11_(subtract_(c1, second_term), third_term);
 
         // subtracting rather than adding since block_force is multiplied by -G
+        // ADD GRAV CONSTANT HERE
         axa[ip*dax] -= block_force[0];
         aya[ip*day] -= block_force[1];
         aza[ip*daz] -= block_force[2];
@@ -1412,7 +1375,7 @@ void EnzoMethodMultipole::traverse
   int volume_b = block_volume_[level_b];
 
 
-  // this stalls if max_level > 0 but there's no refinement
+  // this stalls if max_level > 0 but there's no refinement ==> fixed?
   if (index_a == index_b) {
     // CkPrintf("root double loop\n");
 
@@ -1566,12 +1529,11 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
     double b_image[3];
 
     cello::hierarchy()->get_nearest_periodic_image(com_b.data(), com_a.data(), b_image);
-
+    
+    const int rank = cello::rank();
     rvec[0] = b_image[0] - com_a[0];
-    rvec[1] = b_image[1] - com_a[1];
-    rvec[2] = b_image[2] - com_a[2];
-
-    rvec[2] = 0; // temporary fix for testing in 2D
+    rvec[1] = (rank < 2) ? 0 : b_image[1] - com_a[1];
+    rvec[2] = (rank < 3) ? 0 : b_image[2] - com_a[2];
 
     CkPrintf("rvec in interact_approx: %f, %f, %f\n", rvec[0], rvec[1], rvec[2]);
   }
@@ -2092,16 +2054,16 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
     double b_image[3]; 
     double rvec[3];
     cello::hierarchy()->get_nearest_periodic_image(com_b, com_a, b_image);
-    CkPrintf("com_a: %f %f %f\n", com_a[0], com_a[1], com_a[2]);
-    CkPrintf("com_b: %f %f %f\n", com_b[0], com_b[1], com_b[2]);
-    CkPrintf("b_image: %f %f %f\n", b_image[0], b_image[1], b_image[2]);
+    // CkPrintf("com_a: %f %f %f\n", com_a[0], com_a[1], com_a[2]);
+    // CkPrintf("com_b: %f %f %f\n", com_b[0], com_b[1], com_b[2]);
+    // CkPrintf("b_image: %f %f %f\n", b_image[0], b_image[1], b_image[2]);
     // b_image[2] = 0.5; 
     // get_nearest_periodic_image has a check for dimensionality which i don't have, making the z-component garbage
-
+    
+    const int rank = cello::rank();
     rvec[0] = b_image[0] - com_a[0];
-    rvec[1] = b_image[1] - com_a[1];
-    //rvec[2] = b_image[2] - com_a[2];
-    rvec[2] = 0;
+    rvec[1] = (rank < 2) ? 0 : b_image[1] - com_a[1];
+    rvec[2] = (rank < 3) ? 0 : b_image[2] - com_a[2];
 
     CkPrintf("rvec in interact_direct: %f, %f, %f\n", rvec[0], rvec[1], rvec[2]);
 
@@ -2220,11 +2182,12 @@ bool EnzoMethodMultipole::is_far_ (EnzoBlock * enzo_block,
 
     // be sure to check for 1D/2D/3D and set the junk components accordingly
     cello::hierarchy()->get_nearest_periodic_image(ca, cb, ca_image);
-    d3[0] = ca_image[0] - cb[0];
-    d3[1] = ca_image[1] - cb[1];
-    d3[2] = ca_image[2] - cb[2];
 
-    d3[2] = 0; // this is a temporary fix for working in 2D
+    const int rank = cello::rank();
+    d3[0] = ca_image[0] - cb[0];
+    d3[1] = (rank < 2) ? 0 : ca_image[1] - cb[1];
+    d3[2] = (rank < 3) ? 0 : ca_image[2] - cb[2];
+
   }
   else {
     d3[0] = ca[0] - cb[0];

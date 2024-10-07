@@ -47,7 +47,6 @@ void EnzoEwald::init_interpolate_() throw()
   
   hierarchy->lower(&lox, &loy, &loz);
   hierarchy->upper(&hix, &hiy, &hiz);
-  // loz = -0.5; hiz = 0.5;
   
   double dx = (interp_xpoints_ > 1) ? (hix - lox) / (interp_xpoints_ - 1) : 0;
   double dy = (interp_ypoints_ > 1) ? (hiy - loy) / (interp_ypoints_ - 1) : 0;
@@ -67,29 +66,12 @@ void EnzoEwald::init_interpolate_() throw()
         double y = loy + iy*dy;
         double z = loz + iz*dz;
 
-        // d0_array_[i] = d0(x, y, z);   // d0 is only necessary if we want the potential, not the acceleration
-
-        // d1_array_[i] = d1(x, y, z);
-
-        // d2_array_[i] = d2(x, y, z);
-
-        // d3_array_[i] = d3(x, y, z);
-
-        // d4_array_[i] = d4(x, y, z);
-
-        // d5_array_[i] = d5(x, y, z);
-
-        // d6_array_[i] = d6(x, y, z);
-
         CelloView<double, 1> d1_slice_ = d1(x, y, z);
         CelloView<double, 1> d2_slice_ = d2(x, y, z);
         CelloView<double, 1> d3_slice_ = d3(x, y, z);
         CelloView<double, 1> d4_slice_ = d4(x, y, z);
         CelloView<double, 1> d5_slice_ = d5(x, y, z);
         CelloView<double, 1> d6_slice_ = d6(x, y, z);
-
-        // would d1_array_(i) = d1_slice_ work?
-        // or d1_array_.subarray(i) = d1_slice_ ?
 
         for (int j = 0; j < 3; j++) {
           d1_array_(i, j) = d1_slice_(j);
@@ -120,8 +102,6 @@ void EnzoEwald::init_interpolate_() throw()
     }
   }
 
-  CkPrintf("are we segfaulting after the first loop?\n");
-
   for (int iz = 0; iz <= midz; iz++) {
     for (int iy = 0; iy <= midy; iy++) {
       for (int ix = midx+1; ix < interp_xpoints_; ix++) {
@@ -129,16 +109,9 @@ void EnzoEwald::init_interpolate_() throw()
         int i = ix + interp_xpoints_ * (iy + iz * interp_ypoints_);
         int ix_flip = interp_xpoints_ - 1 - ix;
         int i_flip = ix_flip + interp_xpoints_ * (iy + iz * interp_ypoints_);
-
-        CkPrintf("are we segfaulting after initializing the second loop?\n");
         
         d1_array_(i, 0) = -d1_array_(i_flip, 0); // x
-
-        CkPrintf("are we segfaulting after trying to change the array entry?\n");
-
         d1_array_(i, 1) = d1_array_(i_flip, 1);  // y
-
-
         d1_array_(i, 2) = d1_array_(i_flip, 2);  // z
         
         d2_array_(i, 0) = d2_array_(i_flip, 0);  // xx

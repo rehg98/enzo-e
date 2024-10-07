@@ -32,8 +32,8 @@ public: // interface -- which methods should be public and which protected?
       block_volume_(),
       max_volume_(0),
       interp_xpoints_(64),
-      interp_ypoints_(64),
-      interp_zpoints_(64),
+      interp_ypoints_(2),
+      interp_zpoints_(2),
       dt_max_(1.0e10)
   { }
 
@@ -54,8 +54,8 @@ public: // interface -- which methods should be public and which protected?
       block_volume_(),
       max_volume_(0),
       interp_xpoints_(64),
-      interp_ypoints_(64),
-      interp_zpoints_(64),
+      interp_ypoints_(2),
+      interp_zpoints_(2),
       dt_max_(1.0e10)
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
 
@@ -209,6 +209,7 @@ protected: // methods
     double soft_disp = disp_norm + eps;             // softened displacement
 
     // computing m/(disp_norm + eps)^2 * disp_hat
+    // ADD GRAV CONSTANT HERE
     double accel_scalar = mass_b / (soft_disp*soft_disp*disp_norm);   // include G here 
     
     accel_vec[0] = accel_scalar * disp[0];
@@ -292,7 +293,6 @@ public:
   // shift a quadrupole tensor (old_quadrupole) from center-of-mass old_com to the new center-of-mass new_com
   std::array<double, 6> shift_quadrupole_(double * old_quadrupole, double tot_mass, double * old_com, double * new_com) throw()
   {
-    // consider taking xdisp, ydisp, zdisp as arguments
     double xdisp = new_com[0] - old_com[0];
     double ydisp = new_com[1] - old_com[1];
     double zdisp = new_com[2] - old_com[2];
