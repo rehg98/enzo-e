@@ -32,7 +32,7 @@ EnzoEwald::EnzoEwald (int interp_xpoints, int interp_ypoints, int interp_zpoints
   
   init_interpolate_();
 
-  CkPrintf("after init interpolate\n");
+  //CkPrintf("after init interpolate\n");
 
 }
 
@@ -892,7 +892,7 @@ std::array<double, 6> EnzoEwald::interp_d2(double x, double y, double z) throw()
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
 
-  CkPrintf("i, interp_x, interp_y: %d, %f, %f\n", i, interp_x, interp_y);
+  //CkPrintf("i, interp_x, interp_y: %d, %f, %f\n", i, interp_x, interp_y);
 
   std::array<double, 3> delta_r = {x - interp_x, y - interp_y, z - interp_z};
   std::array<double, 6> delta_r2 = EnzoMethodMultipole::outer_11_(delta_r, delta_r);
@@ -1145,14 +1145,16 @@ CelloView<double, 1> EnzoEwald::d1(double x, double y, double z) throw()
         double ry = y + ny * Ly;
         double rz = z + nz * Lz;
         double r = sqrt(rx*rx + ry*ry + rz*rz);
-        if (r==0) CkPrintf("r: %f", r);
+        if (r==0) CkPrintf("r = 0: %d, %d, %d\n", nx, ny, nz);
         double r2 = r*r;
         double r3 = r*r2;
 
-        double g1;
+        double g1 = 0;
 
         if (nx != 0 || ny != 0 || nz != 0) {
-          g1 = (-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (sqrt(M_PI) * r3); 
+          if (r != 0) {
+            g1 = (-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (sqrt(M_PI) * r3);
+          }
         }
         else {
           
@@ -1162,9 +1164,9 @@ CelloView<double, 1> EnzoEwald::d1(double x, double y, double z) throw()
                        (-1.0 / 3.0 + pow(alpha * r, 2) / 5.0 - pow(alpha * r, 4) / 14.0 + pow(alpha * r, 6) / 54.0 -
                         pow(alpha * r, 8) / 264.0 + pow(alpha * r, 10) / 1560.0);
 
-            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
-              CkPrintf("D1 Taylor: g1, rx, ry, rz: %f, %f, %f, %f\n", g1, rx, ry, rz);
-            }
+            //if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+	    //CkPrintf("D1 Taylor: g1, rx, ry, rz: %f, %f, %f, %f\n", g1, rx, ry, rz);
+            //}
           }
           else { // incorporate Newtonian 1/r term
             g1 = 1.0/r3 + ((-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) 
@@ -1251,17 +1253,20 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
         double r3 = r*r2;
         double r5 = r2*r3;
 
-        double g1, g2;
+        double g1 = 0;
+	double g2 = 0;
 
-        if (nx != 0 || ny != 0 || nz !=0) {
-          g1 = (-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (sqrt(M_PI) * r3);
+        if (nx != 0 || ny != 0 || nz != 0) {
+	  if (r != 0) {
+	    g1 = (-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (sqrt(M_PI) * r3);
 
-          g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
-                * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+	    g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
+	      * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
           
-          // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
-          //     CkPrintf("Away: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
-          //   }
+	    // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+	    //     CkPrintf("Away: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
+	    //   }
+	  }
         }
         else {
           
@@ -1275,9 +1280,9 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
                        (1.0 / 5.0 - pow(alpha * r, 2) / 7.0 + pow(alpha * r, 4) / 18.0 - pow(alpha * r, 6) / 66.0 +
                         pow(alpha * r, 8) / 312.0 - pow(alpha * r, 10) / 1800.0);
 
-            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
-              CkPrintf("D2 Taylor: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
-            }
+	    // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+            //  CkPrintf("D2 Taylor: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
+            // }
 
           }
           else { // incorporate Newtonian 1/r term
@@ -1287,9 +1292,9 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
             g2 = -3.0/r5 + (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
                 * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
             
-            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+            // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
               // CkPrintf("Primary domain: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
-            }
+	    // }
           }
         }
 
@@ -1305,9 +1310,9 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
     }
   }
 
-  if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
-    CkPrintf("D2_counter: %f, %f, %f, %f, %f, %f\n", d2_counter(0), d2_counter(1), d2_counter(2), d2_counter(3), d2_counter(4), d2_counter(5));
-  }
+  //if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+  //  CkPrintf("D2_counter: %f, %f, %f, %f, %f, %f\n", d2_counter(0), d2_counter(1), d2_counter(2), d2_counter(3), d2_counter(4), d2_counter(5));
+  // }
   
   int knxmax = (int)(2.0 * alpha * Lx + 0.5);
   int knymax = (int)(2.0 * alpha * Ly + 0.5);
@@ -1384,14 +1389,17 @@ CelloView<double, 1> EnzoEwald::d3(double x, double y, double z) throw()
         double r5 = r2*r3;
         double r7 = r2*r5;
 
-        double g2, g3;
+        double g2 = 0;
+	double g3 = 0;
 
-        if (nx != 0 || ny != 0 || nz !=0) {
-          g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
-                * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+        if (nx != 0 || ny != 0 || nz != 0) {
+	  if (r != 0) {
+	    g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
+	      * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
 
-          g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
-                - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
+	    g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
+		   - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
+	  }
         }
         else {
           
@@ -1405,9 +1413,9 @@ CelloView<double, 1> EnzoEwald::d3(double x, double y, double z) throw()
                        (-1.0 / 7.0 + pow(alpha * r, 2) / 9.0 - pow(alpha * r, 4) / 22.0 + pow(alpha * r, 6) / 78.0 -
                         pow(alpha * r, 8) / 360.0 + pow(alpha * r, 10) / 2040.0);
 
-            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
-              CkPrintf("D3 Taylor: g2, g3, rx, ry, rz: %f, %f, %f, %f, %f\n", g2, g3, rx, ry, rz);
-            }
+            //if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+            //  CkPrintf("D3 Taylor: g2, g3, rx, ry, rz: %f, %f, %f, %f, %f\n", g2, g3, rx, ry, rz);
+            //}
 
           }
           else { // incorporate Newtonian 1/r term
@@ -1516,18 +1524,22 @@ CelloView<double, 1> EnzoEwald::d4(double x, double y, double z) throw()
         double r7 = r2*r5;
         double r9 = r2*r7;
 
-        double g2, g3, g4;
+        double g2 = 0;
+	double g3 = 0;
+	double g4 = 0;
 
-        if (nx != 0 || ny != 0 || nz !=0) {
-          g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
-                * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+        if (nx != 0 || ny != 0 || nz != 0) {
+	  if (r != 0) {
+	    g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
+	      * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
 
-          g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
-                - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
+	    g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
+		  - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
 
-          g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
-                + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
-                * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
+	    g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
+		  + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
+	      * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
+	  }
         }
         else {
           
@@ -1545,9 +1557,9 @@ CelloView<double, 1> EnzoEwald::d4(double x, double y, double z) throw()
                        (1.0 / 9.0 - pow(alpha * r, 2) / 11.0 + pow(alpha * r, 4) / 26.0 - pow(alpha * r, 6) / 90.0 +
                         pow(alpha * r, 8) / 408.0 - pow(alpha * r, 10) / 2280.0);
 
-            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
-              CkPrintf("D4 Taylor: g2, g3, g4, rx, ry, rz: %f, %f, %f, %f, %f, %f\n", g2, g3, g4, rx, ry, rz);
-            }
+            //if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+            //  CkPrintf("D4 Taylor: g2, g3, g4, rx, ry, rz: %f, %f, %f, %f, %f, %f\n", g2, g3, g4, rx, ry, rz);
+	    // }
 
           }
           else { // incorporate Newtonian 1/r term
@@ -1682,19 +1694,23 @@ CelloView<double, 1> EnzoEwald::d5(double x, double y, double z) throw()
         double r9 = r2*r7;
         double r11 = r2*r9;
 
-        double g3, g4, g5;
+        double g3 = 0;
+	double g4 = 0;
+	double g5 = 0;
 
-        if (nx != 0 || ny != 0 || nz !=0) {
-          g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
-                - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
+        if (nx != 0 || ny != 0 || nz != 0) {
+	  if (r != 0) {
+	    g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
+		  - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
 
-          g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
-                + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
-                * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
+	    g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
+		  + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
+	      * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
 
-          g5 = (-32.0 * sqrt(M_PI) * alpha9 * r9 - 144.0 * sqrt(M_PI) * alpha7 * r7  - 504.0 * sqrt(M_PI) * alpha5 * r5 
-                - 1260.0 * sqrt(M_PI) * alpha3 * r3 - 1890.0 * sqrt(M_PI) * alpha * r - 945.0 * M_PI * exp(alpha2 * r2) 
-                * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r11);
+	    g5 = (-32.0 * sqrt(M_PI) * alpha9 * r9 - 144.0 * sqrt(M_PI) * alpha7 * r7  - 504.0 * sqrt(M_PI) * alpha5 * r5 
+		  - 1260.0 * sqrt(M_PI) * alpha3 * r3 - 1890.0 * sqrt(M_PI) * alpha * r - 945.0 * M_PI * exp(alpha2 * r2) 
+		  * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r11);
+	  }
         }
         else {
           
@@ -1713,9 +1729,9 @@ CelloView<double, 1> EnzoEwald::d5(double x, double y, double z) throw()
                        (-1.0 / 11.0 + pow(alpha * r, 2) / 13.0 - pow(alpha * r, 4) / 30.0 + pow(alpha * r, 6) / 102.0 -
                         pow(alpha * r, 8) / 456.0 + pow(alpha * r, 10) / 2520.0);
 
-            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
-              CkPrintf("D5 Taylor: g3, g4, g5, rx, ry, rz: %f, %f, %f, %f, %f, %f\n", g3, g4, g5, rx, ry, rz);
-            }
+            //if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+            //  CkPrintf("D5 Taylor: g3, g4, g5, rx, ry, rz: %f, %f, %f, %f, %f, %f\n", g3, g4, g5, rx, ry, rz);
+            //}
           }
 
           else { // incorporate Newtonian 1/r term
@@ -1881,23 +1897,28 @@ CelloView<double, 1> EnzoEwald::d6(double x, double y, double z) throw()
         double r11 = r2*r9;
         double r13 = r2*r11;
 
-        double g3, g4, g5, g6;
+        double g3 = 0;
+	double g4 = 0;
+	double g5 = 0;
+	double g6 = 0;
 
-        if (nx != 0 || ny != 0 || nz !=0) {
-          g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
-                - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
+        if (nx != 0 || ny != 0 || nz != 0) {
+	  if (r != 0) {
+	    g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
+		  - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
 
-          g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
-                + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
-                * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
+	    g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
+		  + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
+	      * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
 
-          g5 = (-32.0 * sqrt(M_PI) * alpha9 * r9 - 144.0 * sqrt(M_PI) * alpha7 * r7  - 504.0 * sqrt(M_PI) * alpha5 * r5 
-                - 1260.0 * sqrt(M_PI) * alpha3 * r3 - 1890.0 * sqrt(M_PI) * alpha * r - 945.0 * M_PI * exp(alpha2 * r2) 
-                * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r11);
+	    g5 = (-32.0 * sqrt(M_PI) * alpha9 * r9 - 144.0 * sqrt(M_PI) * alpha7 * r7  - 504.0 * sqrt(M_PI) * alpha5 * r5 
+		  - 1260.0 * sqrt(M_PI) * alpha3 * r3 - 1890.0 * sqrt(M_PI) * alpha * r - 945.0 * M_PI * exp(alpha2 * r2) 
+		  * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r11);
 
-          g6 = (64.0 * sqrt(M_PI) * alpha11 * r11 + 352.0 * sqrt(M_PI) * alpha9 * r9 + 1584.0 * sqrt(M_PI) * alpha7 * r7  
-                + 5544.0 * sqrt(M_PI) * alpha5 * r5 + 13860.0 * sqrt(M_PI) * alpha3 * r3 + 20790.0 * sqrt(M_PI) * alpha * r 
-                + 10395.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r13);
+	    g6 = (64.0 * sqrt(M_PI) * alpha11 * r11 + 352.0 * sqrt(M_PI) * alpha9 * r9 + 1584.0 * sqrt(M_PI) * alpha7 * r7  
+		  + 5544.0 * sqrt(M_PI) * alpha5 * r5 + 13860.0 * sqrt(M_PI) * alpha3 * r3 + 20790.0 * sqrt(M_PI) * alpha * r 
+		  + 10395.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r13);
+	  }
         }
         else {
           
@@ -1920,9 +1941,9 @@ CelloView<double, 1> EnzoEwald::d6(double x, double y, double z) throw()
                         pow(alpha * r, 8) / 504.0 - pow(alpha * r, 10) / 2760.0);
 
 
-            if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
-              CkPrintf("D6 Taylor: g3, g4, g5, g6, rx, ry, rz: %f, %f, %f, %f, %f, %f, %f\n", g3, g4, g5, g6, rx, ry, rz);
-            }
+            //if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+            //  CkPrintf("D6 Taylor: g3, g4, g5, g6, rx, ry, rz: %f, %f, %f, %f, %f, %f, %f\n", g3, g4, g5, g6, rx, ry, rz);
+            //}
 
           }
 

@@ -59,7 +59,7 @@ public:
     *interp_y = loy + iy*dy;
     *interp_z = loz + iz*dz;
 
-    CkPrintf("%f, %f, %f, %d, %f, %f, %f\n", x, y, z, *i, *interp_x, *interp_y, *interp_z);
+    // CkPrintf("%f, %f, %f, %d, %f, %f, %f\n", x, y, z, *i, *interp_x, *interp_y, *interp_z);
 
     return;
   }

@@ -1004,7 +1004,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
   // compute long-range contribution from periodic images of this Block 
   if (ewald_ != nullptr) {
 
-    CkPrintf("ewald in evaluate_force\n");
+    // CkPrintf("ewald in evaluate_force\n");
 
     std::array<double, 3> d1_ewald = ewald_->interp_d1(0, 0, 0); // d1 contribution from periodicity
     std::array<double, 6> d2_ewald = ewald_->interp_d2(0, 0, 0); // d2 contribution from periodicity
@@ -1063,7 +1063,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
     grav_const = enzo::grav_constant_codeU();
   }
 
-  CkPrintf("grav_constant: %f", grav_const);
+  // CkPrintf("grav_constant: %f", grav_const);
   
   // loop over all cells
   for (int iz = gz; iz < mz-gz; iz++) {
@@ -1088,8 +1088,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         accel_y[i] -= grav_const * block_force[1];
         accel_z[i] -= grav_const * block_force[2];
 
-        CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
-        CkPrintf("Block force: %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
+        // CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
+        // CkPrintf("Block force: %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
 
         std::array<double, 3> tot_cell_force = {}; // for debugging purposes
 
@@ -1122,7 +1122,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
             }
           }
         }
-        CkPrintf("Cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        // CkPrintf("Cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
 
         std::array<double, 3> tot_prt_force = {}; // for debugging purposes
 
@@ -1182,7 +1182,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        CkPrintf("Particle force: %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
+        // CkPrintf("Particle force: %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
         CkPrintf("Accel: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
       }
     }
@@ -1238,8 +1238,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         aya[ip*day] -= grav_const * block_force[1];
         aza[ip*daz] -= grav_const * block_force[2];
 
-        CkPrintf("position (prt): %f, %f, %f\n", xa[ip*dx], ya[ip*dy], za[ip*dz]);
-        CkPrintf("Block force (prt): %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
+        //CkPrintf("position (prt): %f, %f, %f\n", xa[ip*dx], ya[ip*dy], za[ip*dz]);
+        //CkPrintf("Block force (prt): %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
 
         std::array<double, 3> tot_cell_force = {}; // for debugging purposes
         
@@ -1270,7 +1270,7 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        CkPrintf("Cell force (prt): %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        //CkPrintf("Cell force (prt): %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
 
         std::array<double, 3> tot_prt_force = {}; // for debugging purposes
 
@@ -1332,8 +1332,8 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
           }
         }
 
-        CkPrintf("Particle force (prt): %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
-        CkPrintf("Accel (prt): %f, %f, %f\n\n", axa[ip*dax], aya[ip*day], aza[ip*daz]);
+        //CkPrintf("Particle force (prt): %f, %f, %f\n", tot_prt_force[0], tot_prt_force[1], tot_prt_force[2]);
+        //CkPrintf("Accel (prt): %f, %f, %f\n\n", axa[ip*dax], aya[ip*day], aza[ip*daz]);
 
       }
     }
@@ -1544,7 +1544,7 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
     rvec[1] = (rank < 2) ? 0 : b_image[1] - com_a[1];
     rvec[2] = (rank < 3) ? 0 : b_image[2] - com_a[2];
 
-    CkPrintf("rvec in interact_approx: %f, %f, %f\n", rvec[0], rvec[1], rvec[2]);
+    //CkPrintf("rvec in interact_approx: %f, %f, %f\n", rvec[0], rvec[1], rvec[2]);
   }
   else {
     rvec = subtract_(com_b, com_a);        // displacement vector between com_b and com_a
@@ -1589,7 +1589,7 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
     std::array<double, 6> d2_ewald = ewald_->interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
     std::array<double, 10> d3_ewald = ewald_->interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
       
-    CkPrintf("d1_ewald in interact_approx: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
+    //CkPrintf("d1_ewald in interact_approx: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
     
     // Combine the derivative tensors from the periodic and non-periodic contributions    
     d1 = add_11_(d1, d1_ewald);
@@ -1694,7 +1694,7 @@ void EnzoMethodMultipole::pack_dens_(EnzoBlock * enzo_block, Index index_b) thro
   SIZE_ARRAY_TYPE(fldsize, double, lo, 3);
   SIZE_ARRAY_TYPE(fldsize, enzo_float, dens, mx*my*mz);
 
-  CkPrintf("is ewald a nullptr in pack_dens? %d\n", ewald_ != nullptr);
+  //CkPrintf("is ewald a nullptr in pack_dens? %d\n", ewald_ != nullptr);
   if (ewald_ != nullptr) {
     SIZE_SCALAR_TYPE(fldsize, double, mass);
     SIZE_ARRAY_TYPE(fldsize, double, com, 3);
@@ -1810,7 +1810,7 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
 
         int i = ix + mx*(iy + my*iz);
 
-        CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
+	// CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
 
         std::array<double, 3> tot_cell_force = {}; // for debugging
 
@@ -1843,8 +1843,8 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
             }
           }
         }
-        CkPrintf("Leaf-leaf cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
-        CkPrintf("Acceleration: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
+        //CkPrintf("Leaf-leaf cell force: %f, %f, %f\n", tot_cell_force[0], tot_cell_force[1], tot_cell_force[2]);
+        //CkPrintf("Acceleration: %f, %f, %f\n\n", accel_x[i], accel_y[i], accel_z[i]);
 
         // compute cell force sourced from particles in Block b
         for (int ipt = 0; ipt < num_is_grav; ipt++) {
@@ -2057,23 +2057,23 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
     rvec[1] = (rank < 2) ? 0 : b_image[1] - com_a[1];
     rvec[2] = (rank < 3) ? 0 : b_image[2] - com_a[2];
 
-    CkPrintf("rvec in interact_direct: %f, %f, %f\n", rvec[0], rvec[1], rvec[2]);
+    //CkPrintf("rvec in interact_direct: %f, %f, %f\n", rvec[0], rvec[1], rvec[2]);
 
     std::array<double, 3> d1_ewald = ewald_->interp_d1(rvec[0], rvec[1], rvec[2]); // d1 contribution from periodicity
     std::array<double, 6> d2_ewald = ewald_->interp_d2(rvec[0], rvec[1], rvec[2]); // d2 contribution from periodicity
     std::array<double, 10> d3_ewald = ewald_->interp_d3(rvec[0], rvec[1], rvec[2]); // d3 contribution from periodicity
 
-    CkPrintf("d1_ewald in interact_direct: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
-    CkPrintf("d2_ewald in interact_direct: %f, %f, %f, %f, %f, %f\n", d2_ewald[0], d2_ewald[1], d2_ewald[2], d2_ewald[3], d2_ewald[4], d2_ewald[5]);
+    //CkPrintf("d1_ewald in interact_direct: %f, %f, %f\n", d1_ewald[0], d1_ewald[1], d1_ewald[2]);
+    //CkPrintf("d2_ewald in interact_direct: %f, %f, %f, %f, %f, %f\n", d2_ewald[0], d2_ewald[1], d2_ewald[2], d2_ewald[3], d2_ewald[4], d2_ewald[5]);
     
     // compute the coefficients of the Taylor expansion of acceleration due to the particles in Block b
     std::array<double, 3> delta_c1 = add_11_(dot_scalar_1_(mass_b, d1_ewald), dot_23_(quadrupole_b, dot_scalar_3_(0.5, d3_ewald)));
     std::array<double, 6> delta_c2 = dot_scalar_2_(mass_b, d2_ewald);
     std::array<double, 10> delta_c3 = dot_scalar_3_(mass_b, d3_ewald);
 
-    CkPrintf("c1 in interact_direct: %f, %f, %f\n", delta_c1[0], delta_c1[1], delta_c1[2]);
-    CkPrintf("c2 in interact_direct: %f, %f, %f, %f, %f, %f\n", delta_c2[0], delta_c2[1], delta_c2[2], delta_c2[3], delta_c2[4], delta_c2[5]);
-    CkPrintf("c3 in interact_direct: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", delta_c3[0], delta_c3[1], delta_c3[2], delta_c3[3], delta_c3[4], delta_c3[5], delta_c3[6], delta_c3[7], delta_c3[8], delta_c3[9]);
+    //CkPrintf("c1 in interact_direct: %f, %f, %f\n", delta_c1[0], delta_c1[1], delta_c1[2]);
+    //CkPrintf("c2 in interact_direct: %f, %f, %f, %f, %f, %f\n", delta_c2[0], delta_c2[1], delta_c2[2], delta_c2[3], delta_c2[4], delta_c2[5]);
+    //CkPrintf("c3 in interact_direct: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", delta_c3[0], delta_c3[1], delta_c3[2], delta_c3[3], delta_c3[4], delta_c3[5], delta_c3[6], delta_c3[7], delta_c3[8], delta_c3[9]);
     
     // add the coefficients for the new interaction to the coefficients already associated with this Block
     std::array<double, 3> new_c1 = add_11_(c1_a, delta_c1);  

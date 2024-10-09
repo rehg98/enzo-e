@@ -778,7 +778,7 @@ HydroInitPack EnzoInitialInclinedWave::prepare_jeans_initializers_
 {
   ASSERT("EnzoInitialInclinedWave::prepare_jeans_initializers_",
          "The gravity method must be used with the jeans wave.",
-         enzo::problem()->method_exists("gravity"));
+         enzo::problem()->method_exists("gravity") || enzo::problem()->method_exists("multipole"));
   ASSERT("EnzoInitialInclinedWave::prepare_jeans_initializers_",
          "There currently isn't support for specifying a velocity with a "
          "Jeans wave wave",

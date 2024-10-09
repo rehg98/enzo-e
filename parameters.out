@@ -3,7 +3,7 @@
  }
 
  Boundary {
-     type = "periodic";
+     type = "reflecting";
  }
 
  Domain {
@@ -16,7 +16,7 @@
      courant = 0.4000000000000000;
      ghost_depth = 4;
      history = 1;
-     list = [ "density", "velocity_x", "velocity_y", "velocity_z", "total_energy", "pressure", "internal_energy", "acceleration_x", "acceleration_y", "acceleration_z", "density_gas", "density_particle", "density_total", "density_particle_accumulate", "potential", "potential_temp", "potential_copy", "X", "B", "X_copy", "B_copy", "particle_mass" ];
+     list = [ "density", "velocity_x", "velocity_y", "velocity_z", "total_energy", "pressure", "internal_energy", "acceleration_x", "acceleration_y", "acceleration_z", "density_gas", "density_particle", "density_total", "particle_mass" ];
      padding = 0;
  }
 
@@ -32,7 +32,7 @@
          alpha = 0.7297276562269663;
          amplitude = 1.000000000000000e-06;
          beta = 1.107148717794090;
-         lambda = 3.000000000000000;
+         lambda = 1.000000000000000;
          positive_vel = true;
          wave_type = "jeans";
      };
@@ -40,16 +40,13 @@
  }
 
  Mesh {
-     root_blocks = [ 1, 1, 1 ];
+     root_blocks = [ 2, 2, 2 ];
      root_rank = 3;
      root_size = [ 64, 32, 32 ];
  }
 
  Method {
-     gravity {
-         solver = "cg";
-     };
-     list = [ "pm_deposit", "gravity", "mhd_vlct" ];
+     list = [ "multipole", "mhd_vlct" ];
      mhd_vlct {
          courant = 0.4000000000000000;
          mhd_choice = "no_bfield";
@@ -58,11 +55,19 @@
          theta_limiter = 2.000000000000000;
          time_scheme = "vl";
      };
+     multipole {
+         eps0 = 0.000000000000000;
+         interp_xpoints = 64;
+         interp_ypoints = 64;
+         interp_zpoint = 64;
+         r0 = 0.000000000000000;
+         theta = 0.0001000000000000000;
+     };
  }
 
  Output {
      data {
-         dir = [ "method_vlct-cg-1-inclined-jeansN32_unstable_%.4f", "time" ];
+         dir = [ "method_vlct-multipole-inclined-jeansN32_%.4f", "time" ];
          field_list = [ "density", "velocity_x", "velocity_y", "velocity_z", "total_energy", "pressure" ];
          name = [ "data-%03d.h5", "proc" ];
          schedule {
@@ -88,17 +93,6 @@
          grav_const_codeU = 0.7853981633974483;
      };
      list = [ "fluid_props", "gravity" ];
- }
-
- Solver {
-     cg {
-         iter_max = 1000;
-         monitor_iter = 25;
-         res_tol = 1.000000000000000e-14;
-         solve_type = "block";
-         type = "cg";
-     };
-     list = [ "cg" ];
  }
 
  Stopping {

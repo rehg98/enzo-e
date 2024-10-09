@@ -207,7 +207,8 @@ protected: // methods
     double disp_norm = sqrt(disp[0]*disp[0] + disp[1]*disp[1] + disp[2]*disp[2]);  
     double eps = epsilon_(disp_norm, eps0_, r0_);    // softening
     double soft_disp = disp_norm*disp_norm + eps;    // softened displacement (r^2 + eps)
-
+    if (soft_disp == 0) CkPrintf("soft_disp = 0\n");
+    
     // computing m/(disp_norm^2 + eps) * disp_hat
     // grav constant (and scale factor) are included in .cpp
     double accel_scalar = mass_b / (soft_disp * disp_norm);    
