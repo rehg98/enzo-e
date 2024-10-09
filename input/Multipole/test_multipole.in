@@ -18,7 +18,7 @@
     list = ["value"];
 
     value {
-        density = [ 0.001 ];
+        density = [ 0.1 ];
         # density = [10.0, y >= 0.0, 0.1];
 	
 	acceleration_x = [ 0.0 ];
@@ -30,13 +30,22 @@
 
  Boundary {
 
-     #type = "reflecting";
+     # type = "reflecting";
      type = "periodic";
  }
 
  Stopping {
      cycle = 1;
     # time = 0.10000;
+ }
+
+ Physics {
+      list = ["gravity"];
+
+      gravity {
+      	 grav_const_codeU = 0.25 * pi;
+      }
+  
  }
 
 #======================================================================
@@ -46,7 +55,7 @@
  Mesh {
      root_rank = 2;
      root_size   = [ 8, 8];  # total number of cells in root grid
-     root_blocks = [  2,  2 ];  # number of blocks in root grid
+     root_blocks = [  1,  1 ];  # number of blocks in root grid
                                 # (so block size = (64/4,32/2) = (16,16)
  }
 

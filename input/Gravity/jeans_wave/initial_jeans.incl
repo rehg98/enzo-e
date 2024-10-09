@@ -44,7 +44,7 @@
          alpha = 0.7297276562269663; # sin(alpha) = 2/3
 	 beta  = 1.1071487177940904; # sin(beta) =  2/sqrt(5)
 
-         lambda = 1.; #wavelength
+         lambda = 3.; #wavelength
 
          # amplitude of the linear wave (has no effect on circularly
 	 # polarized alfven wave)

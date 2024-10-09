@@ -206,11 +206,11 @@ protected: // methods
 
     double disp_norm = sqrt(disp[0]*disp[0] + disp[1]*disp[1] + disp[2]*disp[2]);  
     double eps = epsilon_(disp_norm, eps0_, r0_);    // softening
-    double soft_disp = disp_norm + eps;             // softened displacement
+    double soft_disp = disp_norm*disp_norm + eps;    // softened displacement (r^2 + eps)
 
-    // computing m/(disp_norm + eps)^2 * disp_hat
-    // ADD GRAV CONSTANT HERE
-    double accel_scalar = mass_b / (soft_disp*soft_disp*disp_norm);   // include G here 
+    // computing m/(disp_norm^2 + eps) * disp_hat
+    // grav constant (and scale factor) are included in .cpp
+    double accel_scalar = mass_b / (soft_disp * disp_norm);    
     
     accel_vec[0] = accel_scalar * disp[0];
     accel_vec[1] = accel_scalar * disp[1];
@@ -219,30 +219,34 @@ protected: // methods
     return accel_vec;
   }
 
-  /* Gravitational softening law from Springel et al. 2013; r is the displacement and eps0 is the softening length. 
-     The softening has a finite range, going to 0 for distances greater than r0 (with r0 being smaller than half the smallest
-     box dimension)  */
+  /* [Negative gradient of the] Gravitational softening law from Springel et al. 2013; 
+     r is the displacement and eps0 is the softening length. 
+     The softening has a finite range, going to 0 for distances greater than 
+     r0 (with r0 being smaller than half the smallest box dimension)  */
    double epsilon_(double r, double eps0, double r0)
    {
     // r0 = 0 if not specified in input file
     if (r >= r0)
       return 0; 
       
-    else 
-      return -2.8 * eps0 / W2_(r / (2.8 * eps0)) - r; 
+    else {
+      double h = 2.8 * eps0;
+      return h*h / W2_(r / h) - r*r; // check sign -- always positive
+    }
    }
 
-  /* Kernel for gravitational softening (from Springel, Yoshida, White 2001) */
+  /* Kernel for gravitational softening 
+  (gradient of potential from Springel, Yoshida, White 2001) */
    double W2_(double u)
    {
     if ((u >= 0) && (u < 0.5))
-      return 16./3 * pow(u,2) - 48./5 * pow(u,4) + 32./5 * pow(u,5) - 14./5;
+      return 32./3 * u - 192./5 * pow(u,3) + 32. * pow(u,4);
       
     else if ((u >= 0.5) && (u < 1))
-      return 1./15 * pow(u,-1) + 32./3 * pow(u,2) - 16 * pow(u,3) + 48./5 * pow(u,4) - 32./15 * pow(u,5) - 16./5;
+      return -1./15 * pow(u,-2) + 64./3 * u - 48 * pow(u,2) + 192./5 * pow(u,3) - 32./3 * pow(u,4);
       
-    else 
-      return -1./u;
+    else // if u >= 1
+      return 1./(u*u);
    }
 
 

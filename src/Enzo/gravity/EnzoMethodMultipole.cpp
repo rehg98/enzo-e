@@ -952,7 +952,6 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
   Data * data = block->data();
   Field field = data->field();
   
-  
   enzo_float * accel_x = (enzo_float*) field.values ("acceleration_x");
   enzo_float * accel_y = (enzo_float*) field.values ("acceleration_y");
   enzo_float * accel_z = (enzo_float*) field.values ("acceleration_z");
@@ -972,7 +971,6 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
 
   double lo[3];
   block->lower(lo, lo+1, lo+2);
-
 
   Particle particle = block->data()->particle();
   ParticleDescr * particle_descr = cello::particle_descr();
@@ -1048,10 +1046,24 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
     c3[7] = new_c3[7];
     c3[8] = new_c3[8];
     c3[9] = new_c3[9];
-
   }
 
-  
+
+  EnzoPhysicsCosmology * cosmology = enzo::cosmology();
+  double grav_const; 
+  if (cosmology) {
+    enzo_float cosmo_a = 1.0;
+    enzo_float cosmo_dadt = 0.0;
+    double dt = block->dt();
+    double time = block->time();
+    cosmology-> compute_expansion_factor (&cosmo_a,&cosmo_dadt,time+0.5*dt);
+    grav_const = 1./(4 * cello::pi * cosmo_a);
+  }
+  else {
+    grav_const = enzo::grav_constant_codeU();
+  }
+
+  CkPrintf("grav_constant: %f", grav_const);
   
   // loop over all cells
   for (int iz = gz; iz < mz-gz; iz++) {
@@ -1069,14 +1081,12 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         std::array<double, 3> second_term = dot_12_(a, c2);
         std::array<double, 3> third_term = dot_23_(outer_11_(a, a), dot_scalar_3_(0.5, c3));
 
-        // how does the code treat G?
         std::array<double, 3> block_force = add_11_(subtract_(c1, second_term), third_term);
 
         // subtracting rather than adding since block_force is multiplied by -G 
-        // ADD GRAV CONSTANT HERE
-        accel_x[i] -= block_force[0];
-        accel_y[i] -= block_force[1];
-        accel_z[i] -= block_force[2];
+        accel_x[i] -= grav_const * block_force[0];
+        accel_y[i] -= grav_const * block_force[1];
+        accel_z[i] -= grav_const * block_force[2];
 
         CkPrintf("position: %f, %f, %f\n", (lo[0] + (ix-gx + 0.5)*hx), (lo[1] + (iy-gy + 0.5)*hy), (lo[2] + (iz-gz + 0.5)*hz));
         CkPrintf("Block force: %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
@@ -1100,13 +1110,13 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
 
                 std::array<double, 3> cell_force = newton_force_(dens[i2]*cell_vol, disp); 
 
-                accel_x[i] += cell_force[0];
-                accel_y[i] += cell_force[1];
-                accel_z[i] += cell_force[2];
+                accel_x[i] += grav_const * cell_force[0];
+                accel_y[i] += grav_const * cell_force[1];
+                accel_z[i] += grav_const * cell_force[2];
 
-                tot_cell_force[0] += cell_force[0];
-                tot_cell_force[1] += cell_force[1];
-                tot_cell_force[2] += cell_force[2];
+                tot_cell_force[0] += grav_const * cell_force[0];
+                tot_cell_force[1] += grav_const * cell_force[1];
+                tot_cell_force[2] += grav_const * cell_force[2];
 
               }
             }
@@ -1159,13 +1169,13 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
                 
               std::array<double, 3> prtcell_force = newton_force_(prtmass2[ip*dm2], disp); 
 
-              accel_x[i] += prtcell_force[0];
-              accel_y[i] += prtcell_force[1];
-              accel_z[i] += prtcell_force[2];
+              accel_x[i] += grav_const * prtcell_force[0];
+              accel_y[i] += grav_const * prtcell_force[1];
+              accel_z[i] += grav_const * prtcell_force[2];
 
-              tot_prt_force[0] += prtcell_force[0];
-              tot_prt_force[1] += prtcell_force[1];
-              tot_prt_force[2] += prtcell_force[2];
+              tot_prt_force[0] += grav_const * prtcell_force[0];
+              tot_prt_force[1] += grav_const * prtcell_force[1];
+              tot_prt_force[2] += grav_const * prtcell_force[2];
 
               // ALSO UPDATE GRAVITATING PARTICLE ACCELS HERE?
             }
@@ -1224,10 +1234,9 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
         std::array<double, 3> block_force = add_11_(subtract_(c1, second_term), third_term);
 
         // subtracting rather than adding since block_force is multiplied by -G
-        // ADD GRAV CONSTANT HERE
-        axa[ip*dax] -= block_force[0];
-        aya[ip*day] -= block_force[1];
-        aza[ip*daz] -= block_force[2];
+        axa[ip*dax] -= grav_const * block_force[0];
+        aya[ip*day] -= grav_const * block_force[1];
+        aza[ip*daz] -= grav_const * block_force[2];
 
         CkPrintf("position (prt): %f, %f, %f\n", xa[ip*dx], ya[ip*dy], za[ip*dz]);
         CkPrintf("Block force (prt): %f, %f, %f\n", -1.0*block_force[0], -1.0*block_force[1], -1.0*block_force[2]);
@@ -1249,13 +1258,13 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
                 
               std::array<double, 3> cellprt_force = newton_force_(dens[i2]*cell_vol, disp); 
 
-              axa[ip*dax] += cellprt_force[0];
-              aya[ip*day] += cellprt_force[1];
-              aza[ip*daz] += cellprt_force[2];
+              axa[ip*dax] += grav_const * cellprt_force[0];
+              aya[ip*day] += grav_const * cellprt_force[1];
+              aza[ip*daz] += grav_const * cellprt_force[2];
 
-              tot_cell_force[0] += cellprt_force[0];
-              tot_cell_force[1] += cellprt_force[1];
-              tot_cell_force[2] += cellprt_force[2];
+              tot_cell_force[0] += grav_const * cellprt_force[0];
+              tot_cell_force[1] += grav_const * cellprt_force[1];
+              tot_cell_force[2] += grav_const * cellprt_force[2];
 
             }
           }
@@ -1310,13 +1319,13 @@ void EnzoMethodMultipole::evaluate_force_(Block * block) throw()
                   
                 std::array<double, 3> prtprt_force = newton_force_(prtmass2[ip2*dm2], disp); 
 
-                axa[ip*dax] += prtprt_force[0];
-                aya[ip*day] += prtprt_force[1];
-                aza[ip*daz] += prtprt_force[2];
+                axa[ip*dax] += grav_const * prtprt_force[0];
+                aya[ip*day] += grav_const * prtprt_force[1];
+                aza[ip*daz] += grav_const * prtprt_force[2];
 
-                tot_prt_force[0] += prtprt_force[0];
-                tot_prt_force[1] += prtprt_force[1];
-                tot_prt_force[2] += prtprt_force[2];
+                tot_prt_force[0] += grav_const * prtprt_force[0];
+                tot_prt_force[1] += grav_const * prtprt_force[1];
+                tot_prt_force[2] += grav_const * prtprt_force[2];
               }
 
             }
@@ -1558,18 +1567,8 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
   d2[4] = 3.0/r5 * rvec[1] * rvec[2];
   d2[5] = 3.0/r5 * rvec[2] * rvec[2] - 1.0/r3;
 
-  // for (int j = 0; j < 3; j++) {
-  //   for (int i = 0; i < 3; i++) {
-
-  //     d2[3*i + j] = 3.0/pow(r,5) * rvec[i] * rvec[j]; 
-
-  //     if (i == j) {
-  //       d2[3*i + j] -= 1.0/pow(r,3);
-  //     }
-  //   }
-  // }
-
-  // check this; also precompute coefficients like -15/r7
+  // compute the components of d3
+  // precompute coefficients like -15/r7
   d3[0] = -15.0/r7 * rvec[0] * rvec[0] * rvec[0] + 9.0/r5 * rvec[0];
   d3[1] = -15.0/r7 * rvec[0] * rvec[0] * rvec[1] + 3.0/r5 * rvec[1];
   d3[2] = -15.0/r7 * rvec[0] * rvec[0] * rvec[2] + 3.0/r5 * rvec[2];
@@ -1581,27 +1580,6 @@ void EnzoMethodMultipole::interact_approx_(Block * block, MultipoleMsg * msg_b) 
   d3[8] = -15.0/r7 * rvec[1] * rvec[2] * rvec[2] + 3.0/r5 * rvec[1];
   d3[9] = -15.0/r7 * rvec[2] * rvec[2] * rvec[2] + 9.0/r5 * rvec[2];
       
-  // compute the components of d3
-  // for (int k = 0; k < 3; k++) {
-  //   for (int j = 0; j < 3; j++) {
-  //     for (int i = 0; i < 3; i++) {
-
-  //       d3[9*k + 3*i + j] = -15.0/pow(r,7) * rvec[i] * rvec[j] * rvec[k];
-
-  //       if (i == j) {
-  //         d3[9*k + 3*i + j] += 3.0/pow(r,5) * rvec[k];
-  //       }
-
-  //       if (j == k) {
-  //         d3[9*k + 3*i + j] += 3.0/pow(r,5) * rvec[i];
-  //       }
-
-  //       if (i == k) {
-  //         d3[9*k + 3*i + j] += 3.0/pow(r,5) * rvec[j];
-  //       }
-  //     }
-  //   }
-  // }
 
   if (ewald_ != nullptr) {
 
@@ -1810,6 +1788,20 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
   Particle particle2 (particle_descr, &new_p_data);
   char * prtbuffer_next = particle2.load_data(prtbuffer_b);
 
+  EnzoPhysicsCosmology * cosmology = enzo::cosmology();
+  double grav_const; 
+  if (cosmology) {
+    enzo_float cosmo_a = 1.0;
+    enzo_float cosmo_dadt = 0.0;
+    double dt = block->dt();
+    double time = block->time();
+    cosmology-> compute_expansion_factor (&cosmo_a,&cosmo_dadt,time+0.5*dt);
+    grav_const = 1./(4 * cello::pi * cosmo_a);
+  }
+  else {
+    grav_const = enzo::grav_constant_codeU();
+  }
+
 
   // loop over all cells in this Block
   for (int iz = gz; iz < mz-gz; iz++) {
@@ -1841,13 +1833,13 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
                 
               std::array<double, 3> cell_force = newton_force_(dens[i2]*hx2*hy2*hz2, disp); 
 
-              accel_x[i] += cell_force[0];
-              accel_y[i] += cell_force[1];
-              accel_z[i] += cell_force[2];
+              accel_x[i] += grav_const * cell_force[0];
+              accel_y[i] += grav_const * cell_force[1];
+              accel_z[i] += grav_const * cell_force[2];
 
-              tot_cell_force[0] += cell_force[0];
-              tot_cell_force[1] += cell_force[1];
-              tot_cell_force[2] += cell_force[2];
+              tot_cell_force[0] += grav_const * cell_force[0];
+              tot_cell_force[1] += grav_const * cell_force[1];
+              tot_cell_force[2] += grav_const * cell_force[2];
             }
           }
         }
@@ -1898,9 +1890,9 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
                 
               std::array<double, 3> prtcell_force = newton_force_(prtmass2[ip*dm2], disp); 
 
-              accel_x[i] += prtcell_force[0];
-              accel_y[i] += prtcell_force[1];
-              accel_z[i] += prtcell_force[2];
+              accel_x[i] += grav_const * prtcell_force[0];
+              accel_y[i] += grav_const * prtcell_force[1];
+              accel_z[i] += grav_const * prtcell_force[2];
 
             }
           }
@@ -1955,9 +1947,9 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
                 
               std::array<double, 3> cellprt_force = newton_force_(dens[i2]*hx2*hy2*hz2, disp); 
 
-              axa[ip*dax] += cellprt_force[0];
-              aya[ip*day] += cellprt_force[1];
-              aza[ip*daz] += cellprt_force[2];
+              axa[ip*dax] += grav_const * cellprt_force[0];
+              aya[ip*day] += grav_const * cellprt_force[1];
+              aza[ip*daz] += grav_const * cellprt_force[2];
 
             }
           }
@@ -2006,9 +1998,9 @@ void EnzoMethodMultipole::interact_direct_(Block * block, char * fldbuffer_b, ch
                 
               std::array<double, 3> prtprt_force = newton_force_(prtmass2[ip2*dm2], disp); 
 
-              axa[ip*dax] += prtprt_force[0];
-              aya[ip*day] += prtprt_force[1];
-              aza[ip*daz] += prtprt_force[2];
+              axa[ip*dax] += grav_const * prtprt_force[0];
+              aya[ip*day] += grav_const * prtprt_force[1];
+              aza[ip*daz] += grav_const * prtprt_force[2];
 
             }
           }

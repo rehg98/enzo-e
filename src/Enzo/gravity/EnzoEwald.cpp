@@ -1132,10 +1132,14 @@ CelloView<double, 1> EnzoEwald::d1(double x, double y, double z) throw()
   double alpha = 2.0 / pow(box_vol, 1./3.);
   double alpha2 = alpha * alpha;
 
+  int realnxmax = (int)(8.0 / (alpha * Lx) + 0.5);
+  int realnymax = (int)(8.0 / (alpha * Ly) + 0.5);
+  int realnzmax = (int)(8.0 / (alpha * Lz) + 0.5);
+
   // sum in real space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -realnzmax; nz <= realnzmax; nz++) {
+    for (int ny = -realnymax; ny <= realnymax; ny++) {
+      for (int nx = -realnxmax; nx <= realnxmax; nx++) {
 
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
@@ -1176,11 +1180,14 @@ CelloView<double, 1> EnzoEwald::d1(double x, double y, double z) throw()
     }
   }
   
+  int knxmax = (int)(2.0 * alpha * Lx + 0.5);
+  int knymax = (int)(2.0 * alpha * Ly + 0.5);
+  int knzmax = (int)(2.0 * alpha * Lz + 0.5);
 
   // sum in Fourier space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -knzmax; nz <= knzmax; nz++) {
+    for (int ny = -knymax; ny <= knymax; ny++) {
+      for (int nx = -knxmax; nx <= knxmax; nx++) {
 
         if (nx != 0 || ny != 0 || nz != 0) {
 
@@ -1227,10 +1234,14 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
   double alpha2 = alpha * alpha;
   double alpha3 = alpha2 * alpha;
 
+  int realnxmax = (int)(8.0 / (alpha * Lx) + 0.5);
+  int realnymax = (int)(8.0 / (alpha * Ly) + 0.5);
+  int realnzmax = (int)(8.0 / (alpha * Lz) + 0.5);
+
   // sum in real space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -realnzmax; nz <= realnzmax; nz++) {
+    for (int ny = -realnymax; ny <= realnymax; ny++) {
+      for (int nx = -realnxmax; nx <= realnxmax; nx++) {
 
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
@@ -1298,11 +1309,14 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
     CkPrintf("D2_counter: %f, %f, %f, %f, %f, %f\n", d2_counter(0), d2_counter(1), d2_counter(2), d2_counter(3), d2_counter(4), d2_counter(5));
   }
   
+  int knxmax = (int)(2.0 * alpha * Lx + 0.5);
+  int knymax = (int)(2.0 * alpha * Ly + 0.5);
+  int knzmax = (int)(2.0 * alpha * Lz + 0.5);
 
   // sum in Fourier space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -knzmax; nz <= knzmax; nz++) {
+    for (int ny = -knymax; ny <= knymax; ny++) {
+      for (int nx = -knxmax; nx <= knxmax; nx++) {
 
         if (nx != 0 || ny != 0 || nz != 0) {
 
@@ -1352,10 +1366,14 @@ CelloView<double, 1> EnzoEwald::d3(double x, double y, double z) throw()
   double alpha3 = alpha2 * alpha;
   double alpha5 = alpha2 * alpha3;
 
+  int realnxmax = (int)(8.0 / (alpha * Lx) + 0.5);
+  int realnymax = (int)(8.0 / (alpha * Ly) + 0.5);
+  int realnzmax = (int)(8.0 / (alpha * Lz) + 0.5);
+
   // sum in real space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -realnzmax; nz <= realnzmax; nz++) {
+    for (int ny = -realnymax; ny <= realnymax; ny++) {
+      for (int nx = -realnxmax; nx <= realnxmax; nx++) {
 
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
@@ -1415,11 +1433,14 @@ CelloView<double, 1> EnzoEwald::d3(double x, double y, double z) throw()
     }
   }
   
+  int knxmax = (int)(2.0 * alpha * Lx + 0.5);
+  int knymax = (int)(2.0 * alpha * Ly + 0.5);
+  int knzmax = (int)(2.0 * alpha * Lz + 0.5);
 
   // sum in Fourier space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -knzmax; nz <= knzmax; nz++) {
+    for (int ny = -knymax; ny <= knymax; ny++) {
+      for (int nx = -knxmax; nx <= knxmax; nx++) {
 
         if (nx != 0 || ny != 0 || nz != 0) {
 
@@ -1476,10 +1497,14 @@ CelloView<double, 1> EnzoEwald::d4(double x, double y, double z) throw()
   double alpha5 = alpha2 * alpha3;
   double alpha7 = alpha2 * alpha5;
 
+  int realnxmax = (int)(8.0 / (alpha * Lx) + 0.5);
+  int realnymax = (int)(8.0 / (alpha * Ly) + 0.5);
+  int realnzmax = (int)(8.0 / (alpha * Lz) + 0.5);
+
   // sum in real space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -realnzmax; nz <= realnzmax; nz++) {
+    for (int ny = -realnymax; ny <= realnymax; ny++) {
+      for (int nx = -realnxmax; nx <= realnxmax; nx++) {
 
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
@@ -1557,11 +1582,15 @@ CelloView<double, 1> EnzoEwald::d4(double x, double y, double z) throw()
       }
     }
   }
+
+  int knxmax = (int)(2.0 * alpha * Lx + 0.5);
+  int knymax = (int)(2.0 * alpha * Ly + 0.5);
+  int knzmax = (int)(2.0 * alpha * Lz + 0.5);
   
   // sum in Fourier space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -knzmax; nz <= knzmax; nz++) {
+    for (int ny = -knymax; ny <= knymax; ny++) {
+      for (int nx = -knxmax; nx <= knxmax; nx++) {
 
         if (nx != 0 || ny != 0 || nz != 0) {
 
@@ -1633,10 +1662,14 @@ CelloView<double, 1> EnzoEwald::d5(double x, double y, double z) throw()
   double alpha7 = alpha2 * alpha5;
   double alpha9 = alpha2 * alpha7;
 
+  int realnxmax = (int)(8.0 / (alpha * Lx) + 0.5);
+  int realnymax = (int)(8.0 / (alpha * Ly) + 0.5);
+  int realnzmax = (int)(8.0 / (alpha * Lz) + 0.5);
+
   // sum in real space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -realnzmax; nz <= realnzmax; nz++) {
+    for (int ny = -realnymax; ny <= realnymax; ny++) {
+      for (int nx = -realnxmax; nx <= realnxmax; nx++) {
 
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
@@ -1723,11 +1756,15 @@ CelloView<double, 1> EnzoEwald::d5(double x, double y, double z) throw()
       }
     }
   }
+
+  int knxmax = (int)(2.0 * alpha * Lx + 0.5);
+  int knymax = (int)(2.0 * alpha * Ly + 0.5);
+  int knzmax = (int)(2.0 * alpha * Lz + 0.5);
   
   // sum in Fourier space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -knzmax; nz <= knzmax; nz++) {
+    for (int ny = -knymax; ny <= knymax; ny++) {
+      for (int nx = -knxmax; nx <= knxmax; nx++) {
 
         if (nx != 0 || ny != 0 || nz != 0) {
 
@@ -1823,10 +1860,14 @@ CelloView<double, 1> EnzoEwald::d6(double x, double y, double z) throw()
   double alpha9 = alpha2 * alpha7;
   double alpha11 = alpha2 * alpha9;
 
+  int realnxmax = (int)(8.0 / (alpha * Lx) + 0.5);
+  int realnymax = (int)(8.0 / (alpha * Ly) + 0.5);
+  int realnzmax = (int)(8.0 / (alpha * Lz) + 0.5);
+
   // sum in real space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -realnzmax; nz <= realnzmax; nz++) {
+    for (int ny = -realnymax; ny <= realnymax; ny++) {
+      for (int nx = -realnxmax; nx <= realnxmax; nx++) {
 
         double rx = x + nx * Lx;
         double ry = y + ny * Ly;
@@ -1935,11 +1976,15 @@ CelloView<double, 1> EnzoEwald::d6(double x, double y, double z) throw()
       }
     }
   }
+
+  int knxmax = (int)(2.0 * alpha * Lx + 0.5);
+  int knymax = (int)(2.0 * alpha * Ly + 0.5);
+  int knzmax = (int)(2.0 * alpha * Lz + 0.5);
   
   // sum in Fourier space
-  for (int nz = -5; nz <= 5; nz++) {
-    for (int ny = -5; ny <= 5; ny++) {
-      for (int nx = -5; nx <= 5; nx++) {
+  for (int nz = -knzmax; nz <= knzmax; nz++) {
+    for (int ny = -knymax; ny <= knymax; ny++) {
+      for (int nx = -knxmax; nx <= knxmax; nx++) {
 
         if (nx != 0 || ny != 0 || nz != 0) {
 
