@@ -45,19 +45,23 @@ public:
     cello::hierarchy()->lower(&lox, &loy, &loz);
     cello::hierarchy()->upper(&hix, &hiy, &hiz);
 
-    double dx = (hix - lox) / (interp_xpoints_ - 1);
-    double dy = (hiy - loy) / (interp_ypoints_ - 1);
-    double dz = (hiz - loz) / (interp_zpoints_ - 1);
+    double Lx = hix - lox;
+    double Ly = hiy - loy;
+    double Lz = hiz - loz;
 
-    int ix = (int)((x-lox)/dx);
-    int iy = (int)((y-loy)/dy);
-    int iz = (int)((z-loz)/dz);
+    double dx = Lx / (interp_xpoints_ - 1);
+    double dy = Ly / (interp_ypoints_ - 1);
+    double dz = Lz / (interp_zpoints_ - 1);
+
+    int ix = (int)((x+Lx/2.)/dx);
+    int iy = (int)((y+Ly/2.)/dy);
+    int iz = (int)((z+Lz/2.)/dz);
 
     *i = ix + interp_xpoints_ * (iy + iz * interp_ypoints_);
 
-    *interp_x = lox + ix*dx;
-    *interp_y = loy + iy*dy;
-    *interp_z = loz + iz*dz;
+    *interp_x = -Lx/2. + ix*dx;
+    *interp_y = -Ly/2. + iy*dy;
+    *interp_z = -Lz/2. + iz*dz;
 
     // CkPrintf("%f, %f, %f, %d, %f, %f, %f\n", x, y, z, *i, *interp_x, *interp_y, *interp_z);
 
@@ -79,6 +83,7 @@ public:
 
   CelloView<double, 1> d1(double x, double y, double z) throw();
   CelloView<double, 1> d2(double x, double y, double z) throw();
+  CelloView<double, 1> d2_gadget(double x, double y, double z) throw();
   CelloView<double, 1> d3(double x, double y, double z) throw();
   CelloView<double, 1> d4(double x, double y, double z) throw();
   CelloView<double, 1> d5(double x, double y, double z) throw();

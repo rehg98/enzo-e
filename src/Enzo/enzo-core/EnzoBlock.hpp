@@ -143,6 +143,7 @@ public: /// entry methods
   void p_method_multipole_update_volume (Index index, int volume);
   void r_method_multipole_dualwalk_barrier(CkReductionMsg* msg);
   void r_method_multipole_traverse_complete(CkReductionMsg * msg);
+  void p_method_multipole_end();
     
 
   // EnzoMethodInference

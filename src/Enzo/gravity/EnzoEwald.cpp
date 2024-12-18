@@ -30,9 +30,11 @@ EnzoEwald::EnzoEwald (int interp_xpoints, int interp_ypoints, int interp_zpoints
   d5_array_ = CelloView<double, 2> (tot_points_, 21); // Nx x Ny x Nz x 21
   d6_array_ = CelloView<double, 2> (tot_points_, 28); // Nx x Ny x Nz x 28
   
+  CkPrintf("before init interpolate\n");
+
   init_interpolate_();
 
-  //CkPrintf("after init interpolate\n");
+  CkPrintf("after init interpolate\n");
 
 }
 
@@ -47,10 +49,14 @@ void EnzoEwald::init_interpolate_() throw()
   
   hierarchy->lower(&lox, &loy, &loz);
   hierarchy->upper(&hix, &hiy, &hiz);
+
+  double Lx = hix - lox;
+  double Ly = hiy - loy;
+  double Lz = hiz - loz;
   
-  double dx = (interp_xpoints_ > 1) ? (hix - lox) / (interp_xpoints_ - 1) : 0;
-  double dy = (interp_ypoints_ > 1) ? (hiy - loy) / (interp_ypoints_ - 1) : 0;
-  double dz = (interp_zpoints_ > 1) ? (hiz - loz) / (interp_zpoints_ - 1) : 0;
+  double dx = (interp_xpoints_ > 1) ? Lx / (interp_xpoints_ - 1) : 0;
+  double dy = (interp_ypoints_ > 1) ? Ly / (interp_ypoints_ - 1) : 0;
+  double dz = (interp_zpoints_ > 1) ? Lz / (interp_zpoints_ - 1) : 0;
 
   int midx = floor((interp_xpoints_ - 1)/2);
   int midy = floor((interp_ypoints_ - 1)/2);
@@ -62,9 +68,9 @@ void EnzoEwald::init_interpolate_() throw()
       for (int ix = 0; ix <= midx; ix++) {
         
         int i = ix + interp_xpoints_ * (iy + iz * interp_ypoints_);
-        double x = lox + ix*dx;  
-        double y = loy + iy*dy;
-        double z = loz + iz*dz;
+        double x = -Lx/2. + ix*dx;  
+        double y = -Ly/2. + iy*dy;
+        double z = -Lz/2. + iz*dz;
 
         CelloView<double, 1> d1_slice_ = d1(x, y, z);
         CelloView<double, 1> d2_slice_ = d2(x, y, z);
@@ -844,12 +850,15 @@ std::array<double, 3> EnzoEwald::interp_d1(double x, double y, double z) throw()
   int i;
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
-    
 
-  // do I need EnzoMethodMultipole:: in front of the tensor arithmetic functions?
+  // CkPrintf("x, y, z: %f, %f, %f\n", x, y, z);
+  // CkPrintf("interp points: %f, %f, %f\n", interp_x, interp_y, interp_z);
+  // CkPrintf("i: %d\n", i);
+    
   std::array<double, 3> delta_r = {x - interp_x, y - interp_y, z - interp_z};
   std::array<double, 6> delta_r2 = EnzoMethodMultipole::outer_11_(delta_r, delta_r);
   std::array<double, 10> delta_r3 = EnzoMethodMultipole::outer_12_(delta_r, delta_r2);
+  std::array<double, 15> delta_r4 = EnzoMethodMultipole::outer_13_(delta_r, delta_r3);
 
   // std::array<double, 3> zeroth_term = d1_array_[i]; // d1_array_.subarray(i) 
   // std::array<double, 3> first_term = EnzoMethodMultipole::dot_12_(delta_r, d2_array_[i]);
@@ -862,6 +871,7 @@ std::array<double, 3> EnzoEwald::interp_d1(double x, double y, double z) throw()
   std::array<double, 3> first_term;
   std::array<double, 3> second_term;
   std::array<double, 3> third_term;
+  std::array<double, 3> fourth_term;
 
   first_term[0] = delta_r[0]*d2_array_(i,0) + delta_r[1]*d2_array_(i,1) + delta_r[2]*d2_array_(i,2);   
   first_term[1] = delta_r[0]*d2_array_(i,1) + delta_r[1]*d2_array_(i,3) + delta_r[2]*d2_array_(i,4);   
@@ -875,11 +885,20 @@ std::array<double, 3> EnzoEwald::interp_d1(double x, double y, double z) throw()
   third_term[1] = delta_r3[0]*d4_array_(i,1) + 3*delta_r3[1]*d4_array_(i,3) + 3*delta_r3[2]*d4_array_(i,4) + 3*delta_r3[3]*d4_array_(i,6) + 6*delta_r3[4]*d4_array_(i,7) + 3*delta_r3[5]*d4_array_(i,8) + delta_r3[6]*d4_array_(i,10) + 3*delta_r3[7]*d4_array_(i,11) + 3*delta_r3[8]*d4_array_(i,12) + delta_r3[9]*d4_array_(i,13);
   third_term[2] = delta_r3[0]*d4_array_(i,2) + 3*delta_r3[1]*d4_array_(i,4) + 3*delta_r3[2]*d4_array_(i,5) + 3*delta_r3[3]*d4_array_(i,7) + 6*delta_r3[4]*d4_array_(i,8) + 3*delta_r3[5]*d4_array_(i,9) + delta_r3[6]*d4_array_(i,11) + 3*delta_r3[7]*d4_array_(i,12) + 3*delta_r3[8]*d4_array_(i,13) + delta_r3[9]*d4_array_(i,14);
 
+  fourth_term[0] = delta_r4[0]*d5_array_(i,0) + 4*delta_r4[1]*d5_array_(i,1) + 4*delta_r4[2]*d5_array_(i,2) + 6*delta_r4[3]*d5_array_(i,3) + 12*delta_r4[4]*d5_array_(i,4) + 6*delta_r4[5]*d5_array_(i,5) + 4*delta_r4[6]*d5_array_(i,6) + 12*delta_r4[7]*d5_array_(i,7) + 12*delta_r4[8]*d5_array_(i,8) + 4*delta_r4[9]*d5_array_(i,9) + delta_r4[10]*d5_array_(i,10) + 4*delta_r4[11]*d5_array_(i,11) + 6*delta_r4[12]*d5_array_(i,12) + 4*delta_r4[13]*d5_array_(i,13) + delta_r4[14]*d5_array_(i,14);
+  fourth_term[1] = delta_r4[0]*d5_array_(i,1) + 4*delta_r4[1]*d5_array_(i,3) + 4*delta_r4[2]*d5_array_(i,4) + 6*delta_r4[3]*d5_array_(i,6) + 12*delta_r4[4]*d5_array_(i,7) + 6*delta_r4[5]*d5_array_(i,8) + 4*delta_r4[6]*d5_array_(i,10) + 12*delta_r4[7]*d5_array_(i,11) + 12*delta_r4[8]*d5_array_(i,12) + 4*delta_r4[9]*d5_array_(i,13) + delta_r4[10]*d5_array_(i,15) + 4*delta_r4[11]*d5_array_(i,16) + 6*delta_r4[12]*d5_array_(i,17) + 4*delta_r4[13]*d5_array_(i,18) + delta_r4[14]*d5_array_(i,19);
+  fourth_term[2] = delta_r4[0]*d5_array_(i,2) + 4*delta_r4[1]*d5_array_(i,4) + 4*delta_r4[2]*d5_array_(i,5) + 6*delta_r4[3]*d5_array_(i,7) + 12*delta_r4[4]*d5_array_(i,8) + 6*delta_r4[5]*d5_array_(i,9) + 4*delta_r4[6]*d5_array_(i,11) + 12*delta_r4[7]*d5_array_(i,12) + 12*delta_r4[8]*d5_array_(i,13) + 4*delta_r4[9]*d5_array_(i,14) + delta_r4[10]*d5_array_(i,16) + 4*delta_r4[11]*d5_array_(i,17) + 6*delta_r4[12]*d5_array_(i,18) + 4*delta_r4[13]*d5_array_(i,19) + delta_r4[14]*d5_array_(i,20);
+
+  // CkPrintf("d1 ewald zeroth_term: %f, %f, %f\n", d1_array_(i, 0), d1_array_(i, 1), d1_array_(i, 2));
+  // CkPrintf("d1 ewald first_term: %f, %f, %f\n", first_term[0], first_term[1], first_term[2]);
+  // CkPrintf("d1 ewald second_term: %f, %f, %f\n", 0.5*second_term[0], 0.5*second_term[1], 0.5*second_term[2]);
+  // CkPrintf("d1 ewald third_term: %f, %f, %f\n", 1.0/6.0*third_term[0], 1.0/6.0*third_term[1], 1.0/6.0*third_term[2]);
+
 
   std::array<double, 3> sum; 
-  sum[0] = d1_array_(i, 0) + first_term[0] + 0.5*second_term[0] + 1.0/6.0*third_term[0];
-  sum[1] = d1_array_(i, 1) + first_term[1] + 0.5*second_term[1] + 1.0/6.0*third_term[1];
-  sum[2] = d1_array_(i, 2) + first_term[2] + 0.5*second_term[2] + 1.0/6.0*third_term[2];
+  sum[0] = d1_array_(i, 0) + first_term[0] + 0.5*second_term[0] + 1.0/6.0*third_term[0] + 1.0/24*fourth_term[0];
+  sum[1] = d1_array_(i, 1) + first_term[1] + 0.5*second_term[1] + 1.0/6.0*third_term[1] + 1.0/24*fourth_term[1];
+  sum[2] = d1_array_(i, 2) + first_term[2] + 0.5*second_term[2] + 1.0/6.0*third_term[2] + 1.0/24*fourth_term[2];
 
   return sum;
   
@@ -891,6 +910,9 @@ std::array<double, 6> EnzoEwald::interp_d2(double x, double y, double z) throw()
   int i;
   double interp_x, interp_y, interp_z;
   find_nearest_interp_point(x, y, z, &interp_x, &interp_y, &interp_z, &i);
+
+  // CelloView<double, 1> d2_slice_ = d2(0, 0, 0);
+  // CkPrintf("d2_slice: %f, %f, %f, %f, %f, %f\n", d2_slice_(0), d2_slice_(1), d2_slice_(2), d2_slice_(3), d2_slice_(4), d2_slice_(5)); 
 
   //CkPrintf("i, interp_x, interp_y: %d, %f, %f\n", i, interp_x, interp_y);
 
@@ -936,6 +958,14 @@ std::array<double, 6> EnzoEwald::interp_d2(double x, double y, double z) throw()
   third_term[4] = delta_r3[0]*d5_array_(i,4) + 3*delta_r3[1]*d5_array_(i,7) + 3*delta_r3[2]*d5_array_(i,8) + 3*delta_r3[3]*d5_array_(i,11) + 6*delta_r3[4]*d5_array_(i,12) + 3*delta_r3[5]*d5_array_(i,13) + delta_r3[6]*d5_array_(i,16) + 3*delta_r3[7]*d5_array_(i,17) + 3*delta_r3[8]*d5_array_(i,18) + delta_r3[9]*d5_array_(i,19);
   third_term[5] = delta_r3[0]*d5_array_(i,5) + 3*delta_r3[1]*d5_array_(i,8) + 3*delta_r3[2]*d5_array_(i,9) + 3*delta_r3[3]*d5_array_(i,12) + 6*delta_r3[4]*d5_array_(i,13) + 3*delta_r3[5]*d5_array_(i,14) + delta_r3[6]*d5_array_(i,17) + 3*delta_r3[7]*d5_array_(i,18) + 3*delta_r3[8]*d5_array_(i,19) + delta_r3[9]*d5_array_(i,20);
 
+  // CkPrintf("d2 ewald zeroth_term: %f, %f, %f, %f, %f, %f\n", 
+  //         d2_array_(i, 0), d2_array_(i, 1), d2_array_(i, 2), d2_array_(i, 3), d2_array_(i, 4), d2_array_(i, 5));
+  // CkPrintf("d2 ewald first_term: %f, %f, %f, %f, %f, %f\n", 
+  //         first_term[0], first_term[1], first_term[2], first_term[3], first_term[4], first_term[5]);
+  // CkPrintf("d2 ewald second_term: %f, %f, %f, %f, %f, %f\n", 
+  //         second_term[0], second_term[1], second_term[2], second_term[3], second_term[4], second_term[5]);
+  // CkPrintf("d2 ewald third_term: %f, %f, %f, %f, %f, %f\n", 
+  //         third_term[0], third_term[1], third_term[2], third_term[3], third_term[4], third_term[5]);
 
   std::array<double, 6> sum; 
   sum[0] = d2_array_(i, 0) + first_term[0] + 0.5*second_term[0] + 1.0/6.0*third_term[0];
@@ -1006,6 +1036,18 @@ std::array<double, 10> EnzoEwald::interp_d3(double x, double y, double z) throw(
   third_term[8] = delta_r3[0]*d6_array_(i,8) + 3*delta_r3[1]*d6_array_(i,12) + 3*delta_r3[2]*d6_array_(i,13) + 3*delta_r3[3]*d6_array_(i,17) + 6*delta_r3[4]*d6_array_(i,18) + 3*delta_r3[5]*d6_array_(i,19) + delta_r3[6]*d6_array_(i,23) + 3*delta_r3[7]*d6_array_(i,24) + 3*delta_r3[8]*d6_array_(i,25) + delta_r3[9]*d6_array_(i,26);
   third_term[9] = delta_r3[0]*d6_array_(i,9) + 3*delta_r3[1]*d6_array_(i,13) + 3*delta_r3[2]*d6_array_(i,14) + 3*delta_r3[3]*d6_array_(i,18) + 6*delta_r3[4]*d6_array_(i,19) + 3*delta_r3[5]*d6_array_(i,20) + delta_r3[6]*d6_array_(i,24) + 3*delta_r3[7]*d6_array_(i,25) + 3*delta_r3[8]*d6_array_(i,26) + delta_r3[9]*d6_array_(i,27);
 
+  // CkPrintf("d3 ewald zeroth_term: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", 
+  //         d3_array_(i, 0), d3_array_(i, 1), d3_array_(i, 2), d3_array_(i, 3), d3_array_(i, 4), d3_array_(i, 5),
+  //         d3_array_(i, 6), d3_array_(i, 7), d3_array_(i, 8), d3_array_(i, 9));
+  // CkPrintf("d3 ewald first_term: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", 
+  //         first_term[0], first_term[1], first_term[2], first_term[3], first_term[4], first_term[5],
+  //         first_term[6], first_term[7], first_term[8], first_term[9]);
+  // CkPrintf("d3 ewald second_term: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", 
+  //         second_term[0], second_term[1], second_term[2], second_term[3], second_term[4], second_term[5],
+  //         second_term[6], second_term[7], second_term[8], second_term[9]);
+  // CkPrintf("d3 ewald third_term: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", 
+  //         third_term[0], third_term[1], third_term[2], third_term[3], third_term[4], third_term[5],
+  //         third_term[6], third_term[7], third_term[8], third_term[9]);
 
   std::array<double, 10> sum; 
   sum[0] = d3_array_(i, 0) + first_term[0] + 0.5*second_term[0] + 1.0/6.0*third_term[0];
@@ -1145,7 +1187,7 @@ CelloView<double, 1> EnzoEwald::d1(double x, double y, double z) throw()
         double ry = y + ny * Ly;
         double rz = z + nz * Lz;
         double r = sqrt(rx*rx + ry*ry + rz*rz);
-        if (r==0) CkPrintf("r = 0: %d, %d, %d\n", nx, ny, nz);
+        // if (r==0) CkPrintf("r = 0: %d, %d, %d\n", nx, ny, nz);
         double r2 = r*r;
         double r3 = r*r2;
 
@@ -1254,24 +1296,31 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
         double r5 = r2*r3;
 
         double g1 = 0;
-	double g2 = 0;
+	      double g2 = 0;
 
         if (nx != 0 || ny != 0 || nz != 0) {
-	  if (r != 0) {
-	    g1 = (-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (sqrt(M_PI) * r3);
+          if (r != 0) {
+            // g1 = (-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (sqrt(M_PI) * r3);
 
-	    g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
-	      * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
-          
-	    // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
-	    //     CkPrintf("Away: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
-	    //   }
-	  }
+            // g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
+            //   * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+
+
+            g1 = -(erfc(alpha * r) + 2.0 * alpha * r / sqrt(M_PI) * exp(-alpha2 * r2)) / r3;
+
+            g2 = (3.0 * erfc(alpha * r) + (6.0 * alpha * r + 4.0 * pow(alpha * r, 3)) / sqrt(M_PI) * exp(-alpha2 * r2)) / r5;
+
+                  
+              // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+              //     CkPrintf("Away: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
+              //   }
+          }
         }
         else {
           
           // Taylor expand if r is close to 0
           if ((alpha * r) < 0.5) {
+	    
             g1 = -4.0 * pow(alpha, 3) / sqrt(M_PI) *
                        (-1.0 / 3.0 + pow(alpha * r, 2) / 5.0 - pow(alpha * r, 4) / 14.0 + pow(alpha * r, 6) / 54.0 -
                         pow(alpha * r, 8) / 264.0 + pow(alpha * r, 10) / 1560.0);
@@ -1280,17 +1329,25 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
                        (1.0 / 5.0 - pow(alpha * r, 2) / 7.0 + pow(alpha * r, 4) / 18.0 - pow(alpha * r, 6) / 66.0 +
                         pow(alpha * r, 8) / 312.0 - pow(alpha * r, 10) / 1800.0);
 
-	    // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
+	          // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
             //  CkPrintf("D2 Taylor: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
             // }
 
           }
           else { // incorporate Newtonian 1/r term
-            g1 = 1.0/r3 + ((-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) 
-                  * exp(-1.0 * alpha2 * r2) / (sqrt(M_PI) * r3));
+            if (r != 0) {
 
-            g2 = -3.0/r5 + (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
-                * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+
+              // g1 = 1.0/r3 + ((-2.0 * alpha * r - sqrt(M_PI) * exp(alpha2*r2) * erfc(alpha*r)) 
+              //       * exp(-1.0 * alpha2 * r2) / (sqrt(M_PI) * r3));
+
+              // g2 = -3.0/r5 + (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
+              //     * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+
+              g1 = -(-erf(alpha * r) + 2.0 * alpha * r / sqrt(M_PI) * exp(-alpha2 * r2)) / r3;
+
+              g2 = -(3.0 * erf(alpha * r) - (6.0 * alpha * r + 4.0 * pow(alpha * r, 3)) / sqrt(M_PI) * exp(-alpha2 * r2)) / r5;
+            }
             
             // if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
               // CkPrintf("Primary domain: g1, g2, rx, ry, rz: %f, %f, %f, %f, %f\n", g1, g2, rx, ry, rz);
@@ -1309,6 +1366,8 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
       }
     }
   }
+
+  // if (x == 0 && y == 0 && z == 0) CkPrintf("d2 counter 1: %f\n", d2_counter(0));
 
   //if (abs(x + 0.007937) <= 1e-5 && abs(y + 0.007937) <= 1e-5 && abs(z + 0) < 1e-2) {
   //  CkPrintf("D2_counter: %f, %f, %f, %f, %f, %f\n", d2_counter(0), d2_counter(1), d2_counter(2), d2_counter(3), d2_counter(4), d2_counter(5));
@@ -1331,7 +1390,7 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
           double k2 = kx*kx + ky*ky + kz*kz;
           double kdotx = kx*x + ky*y + kz*z;
 
-          double k_exp = 4.0*M_PI/box_vol * (exp(-1.0*k2 / (4.0*alpha2)) / k2) * cos(kdotx); 
+          double k_exp = 4.0*M_PI/box_vol * (exp(-1.0*k2 / (4.0*alpha2)) / k2) * cos(kdotx);
 
           d2_counter(0) += k_exp * kx*kx;
           d2_counter(1) += k_exp * kx*ky;
@@ -1344,9 +1403,150 @@ CelloView<double, 1> EnzoEwald::d2(double x, double y, double z) throw()
     }
   }
 
+  // if (x == 0 && y == 0 && z == 0) CkPrintf("d2 counter 2: %f\n", d2_counter(0));
+
   return d2_counter;
   
 }
+
+CelloView<double, 1> EnzoEwald::d2_gadget(double x, double y, double z) throw()
+{
+
+
+  CelloView<double, 1> d2_counter(6);
+
+  Hierarchy * hierarchy = enzo::simulation()->hierarchy();
+  double lox, loy, loz; 
+  double hix, hiy, hiz;
+  hierarchy->lower(&lox, &loy, &loz);
+  hierarchy->upper(&hix, &hiy, &hiz);
+
+  double LONG_X = 1.0/(hix - lox);
+  double LONG_Y = 1.0/(hiy - loy);
+  double LONG_Z = 1.0/(hiz - loz);
+
+
+  double leff   = pow((1.0 / LONG_X) * (1.0 / LONG_Y) * (1.0 / LONG_Z), 1.0 / 3);
+  double alpha  = 2.0 / leff;
+  double alpha2 = alpha * alpha;
+
+  int qxmax = (int)(8.0 * LONG_X / alpha + 0.5);
+  int qymax = (int)(8.0 * LONG_Y / alpha + 0.5);
+  int qzmax = (int)(8.0 * LONG_Z / alpha + 0.5);
+
+  int nxmax = (int)(2.0 * alpha / LONG_X + 0.5);
+  int nymax = (int)(2.0 * alpha / LONG_Y + 0.5);
+  int nzmax = (int)(2.0 * alpha / LONG_Z + 0.5);
+
+ 
+
+  for(int nx = -qxmax; nx <= qxmax; nx++)
+    for(int ny = -qymax; ny <= qymax; ny++)
+      for(int nz = -qzmax; nz <= qzmax; nz++)
+        {
+          double dx = x - nx * (1.0 / LONG_X);
+          double dy = y - ny * (1.0 / LONG_Y);
+          double dz = z - nz * (1.0 / LONG_Z);
+
+          double r2 = dx * dx + dy * dy + dz * dz;
+          double r  = sqrt(r2);
+
+          double rinv  = (r > 0) ? 1.0 / r : 0.0;
+          double r2inv = rinv * rinv;
+          double r3inv = r2inv * rinv;
+          double r5inv = r3inv * r2inv;
+
+          double g1, g2;
+
+          if(nx != 0 || ny != 0 || nz != 0)
+            {
+              g1 = (erfc(alpha * r) + 2.0 * alpha * r / sqrt(M_PI) * exp(-alpha2 * r2)) * r3inv;
+
+              g2 = -(3.0 * erfc(alpha * r) + (6.0 * alpha * r + 4.0 * pow(alpha * r, 3)) / sqrt(M_PI) * exp(-alpha2 * r2)) * r5inv;
+            }
+          else
+            {
+              /* we add the 1/r term here to the (0|0|0) entry, followed by differentiation, and the limit r->0 to obtain accurate
+               * results at the origin
+               */
+
+              /* Note, for small r:
+               *
+               *   [1/- erfc(a r)]/r  =  2 a/sqrt(pi) * [ 1 - (a r)^2/3 + (a r)^4 / 10 - (a r)^6 / 42 + (a r)^8 / 216 - ...]
+               *
+               *   Hence for r = 0:
+               *
+               *   g0 =  2     * alpha   / sqrt(pi)
+               *   g1 = -4/3   * alpha^3 / sqrt(pi)
+               *   g2 =  8/5   * alpha^5 / sqrt(pi)
+               *   g3 = -16/7  * alpha^7 / sqrt(pi)
+               *   g4 =  32/9  * alpha^9 / sqrt(pi)
+               *   g5 = -64/11 * alpha^11/ sqrt(pi)
+               */
+
+              if((alpha * r) < 0.5)
+                {
+                  g1 = 4.0 * pow(alpha, 3) / sqrt(M_PI) *
+                       (-1.0 / 3.0 + pow(alpha * r, 2) / 5.0 - pow(alpha * r, 4) / 14.0 + pow(alpha * r, 6) / 54.0 -
+                        pow(alpha * r, 8) / 264.0 + pow(alpha * r, 10) / 1560.0);
+
+                  g2 = 8.0 * pow(alpha, 5) / sqrt(M_PI) *
+                       (1.0 / 5.0 - pow(alpha * r, 2) / 7.0 + pow(alpha * r, 4) / 18.0 - pow(alpha * r, 6) / 66.0 +
+                        pow(alpha * r, 8) / 312.0 - pow(alpha * r, 10) / 1800.0);
+                }
+              else
+                {
+                  g1 = (-erf(alpha * r) + 2.0 * alpha * r / sqrt(M_PI) * exp(-alpha2 * r2)) * r3inv;
+
+                  g2 = (3.0 * erf(alpha * r) - (6.0 * alpha * r + 4.0 * pow(alpha * r, 3)) / sqrt(M_PI) * exp(-alpha2 * r2)) * r5inv;
+                }
+            }
+
+	  d2_counter(0) += g2*dx*dx + g1;
+	  d2_counter(1) += g2*dx*dy;
+	  d2_counter(2) += g2*dx*dz; 
+	  d2_counter(3) += g2*dy*dy + g1;
+	  d2_counter(4) += g2*dy*dz; 
+	  d2_counter(5) += g2*dz*dz + g1;
+
+          //D2 += g2 * (dxyz % dxyz);
+          //D2[qXX] += g1;
+          //D2[qYY] += g1;
+          //D2[qZZ] += g1;
+        }
+
+  for(int nx = -nxmax; nx <= nxmax; nx++)
+    for(int ny = -nymax; ny <= nymax; ny++)
+      for(int nz = -nzmax; nz <= nzmax; nz++)
+        {
+          if(nx != 0 || ny != 0 || nz != 0)
+            {
+              double kx = (2.0 * M_PI * LONG_X) * nx;
+              double ky = (2.0 * M_PI * LONG_Y) * ny;
+              double kz = (2.0 * M_PI * LONG_Z) * nz;
+              double k2 = kx * kx + ky * ky + kz * kz;
+
+              double kdotx = (x * kx + y * ky + z * kz);
+              double val   = 4.0 * M_PI * (LONG_X * LONG_Y * LONG_Z) / k2 * exp(-k2 / (4.0 * alpha2)) * cos(kdotx);
+
+              
+	      d2_counter(0) += val * kx*kx;
+              d2_counter(1) += val * kx*ky;
+              d2_counter(2) += val * kx*kz;
+              d2_counter(3) += val * ky*ky;
+              d2_counter(4) += val * ky*kz;
+              d2_counter(5) += val * kz*kz;
+	      
+              // D2 += (val * kxyz) % kxyz;
+            }
+        }
+
+  // if (x == 0 && y == 0 && z == 0) CkPrintf("d2 counter gadget: %f\n", d2_counter(0));
+
+  return d2_counter;
+}
+
+
 
 // compute the d3 term of the Ewald sum at coordinates (x, y, z)
 CelloView<double, 1> EnzoEwald::d3(double x, double y, double z) throw()
@@ -1390,16 +1590,16 @@ CelloView<double, 1> EnzoEwald::d3(double x, double y, double z) throw()
         double r7 = r2*r5;
 
         double g2 = 0;
-	double g3 = 0;
+	      double g3 = 0;
 
         if (nx != 0 || ny != 0 || nz != 0) {
-	  if (r != 0) {
-	    g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
-	      * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+          if (r != 0) {
+            g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
+              * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
 
-	    g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
-		   - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
-	  }
+            g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
+              - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
+          }
         }
         else {
           
@@ -1475,6 +1675,8 @@ CelloView<double, 1> EnzoEwald::d3(double x, double y, double z) throw()
     }
   }
 
+  // if (x == 0 && y == 0 && z == 0) CkPrintf("d3 counter 2: %f\n", d3_counter(0));
+
   return d3_counter;
   
 }
@@ -1525,21 +1727,21 @@ CelloView<double, 1> EnzoEwald::d4(double x, double y, double z) throw()
         double r9 = r2*r7;
 
         double g2 = 0;
-	double g3 = 0;
-	double g4 = 0;
+        double g3 = 0;
+        double g4 = 0;
 
         if (nx != 0 || ny != 0 || nz != 0) {
-	  if (r != 0) {
-	    g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
-	      * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
+          if (r != 0) {
+            g2 = (4.0 * sqrt(M_PI) * alpha3 * r3 + 6.0 * sqrt(M_PI) * alpha * r + 3.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r))
+              * exp(-1.0 * alpha2 * r2) / (M_PI * r5);
 
-	    g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
-		  - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
+            g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
+            - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
 
-	    g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
-		  + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
-	      * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
-	  }
+            g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
+            + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
+              * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
+          }
         }
         else {
           
@@ -1595,6 +1797,8 @@ CelloView<double, 1> EnzoEwald::d4(double x, double y, double z) throw()
     }
   }
 
+  // if (x == 0 && y == 0 && z == 0) CkPrintf("d4 counter 1: %f\n", d4_counter(0));
+
   int knxmax = (int)(2.0 * alpha * Lx + 0.5);
   int knymax = (int)(2.0 * alpha * Ly + 0.5);
   int knzmax = (int)(2.0 * alpha * Lz + 0.5);
@@ -1634,6 +1838,8 @@ CelloView<double, 1> EnzoEwald::d4(double x, double y, double z) throw()
       }
     }
   }
+
+  // if (x == 0 && y == 0 && z == 0) CkPrintf("d4 counter 2: %f\n", d4_counter(0));
 
   return d4_counter;
   
@@ -1695,22 +1901,22 @@ CelloView<double, 1> EnzoEwald::d5(double x, double y, double z) throw()
         double r11 = r2*r9;
 
         double g3 = 0;
-	double g4 = 0;
-	double g5 = 0;
+        double g4 = 0;
+        double g5 = 0;
 
         if (nx != 0 || ny != 0 || nz != 0) {
-	  if (r != 0) {
-	    g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
-		  - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
+          if (r != 0) {
+            g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
+            - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
 
-	    g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
-		  + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
-	      * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
+            g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
+            + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
+              * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
 
-	    g5 = (-32.0 * sqrt(M_PI) * alpha9 * r9 - 144.0 * sqrt(M_PI) * alpha7 * r7  - 504.0 * sqrt(M_PI) * alpha5 * r5 
-		  - 1260.0 * sqrt(M_PI) * alpha3 * r3 - 1890.0 * sqrt(M_PI) * alpha * r - 945.0 * M_PI * exp(alpha2 * r2) 
-		  * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r11);
-	  }
+            g5 = (-32.0 * sqrt(M_PI) * alpha9 * r9 - 144.0 * sqrt(M_PI) * alpha7 * r7  - 504.0 * sqrt(M_PI) * alpha5 * r5 
+            - 1260.0 * sqrt(M_PI) * alpha3 * r3 - 1890.0 * sqrt(M_PI) * alpha * r - 945.0 * M_PI * exp(alpha2 * r2) 
+            * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r11);
+          }
         }
         else {
           
@@ -1898,27 +2104,27 @@ CelloView<double, 1> EnzoEwald::d6(double x, double y, double z) throw()
         double r13 = r2*r11;
 
         double g3 = 0;
-	double g4 = 0;
-	double g5 = 0;
-	double g6 = 0;
+        double g4 = 0;
+        double g5 = 0;
+        double g6 = 0;
 
         if (nx != 0 || ny != 0 || nz != 0) {
-	  if (r != 0) {
-	    g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
-		  - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
+          if (r != 0) {
+            g3 = (-8.0 * sqrt(M_PI) * alpha5 * r5 - 20.0 * sqrt(M_PI) * alpha3 * r3 - 30.0 * sqrt(M_PI) * alpha * r
+            - 15.0 * M_PI * exp(alpha2 * r2) * erfc(alpha*r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r7);
 
-	    g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
-		  + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
-	      * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
+            g4 = (16.0 * sqrt(M_PI) * alpha7 * r7  + 56.0 * sqrt(M_PI) * alpha5 * r5 + 140.0 * sqrt(M_PI) * alpha3 * r3
+            + 210.0 * sqrt(M_PI) * alpha * r + 105.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) 
+              * exp(-1.0 * alpha2 * r2) / (M_PI * r9);
 
-	    g5 = (-32.0 * sqrt(M_PI) * alpha9 * r9 - 144.0 * sqrt(M_PI) * alpha7 * r7  - 504.0 * sqrt(M_PI) * alpha5 * r5 
-		  - 1260.0 * sqrt(M_PI) * alpha3 * r3 - 1890.0 * sqrt(M_PI) * alpha * r - 945.0 * M_PI * exp(alpha2 * r2) 
-		  * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r11);
+            g5 = (-32.0 * sqrt(M_PI) * alpha9 * r9 - 144.0 * sqrt(M_PI) * alpha7 * r7  - 504.0 * sqrt(M_PI) * alpha5 * r5 
+            - 1260.0 * sqrt(M_PI) * alpha3 * r3 - 1890.0 * sqrt(M_PI) * alpha * r - 945.0 * M_PI * exp(alpha2 * r2) 
+            * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r11);
 
-	    g6 = (64.0 * sqrt(M_PI) * alpha11 * r11 + 352.0 * sqrt(M_PI) * alpha9 * r9 + 1584.0 * sqrt(M_PI) * alpha7 * r7  
-		  + 5544.0 * sqrt(M_PI) * alpha5 * r5 + 13860.0 * sqrt(M_PI) * alpha3 * r3 + 20790.0 * sqrt(M_PI) * alpha * r 
-		  + 10395.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r13);
-	  }
+            g6 = (64.0 * sqrt(M_PI) * alpha11 * r11 + 352.0 * sqrt(M_PI) * alpha9 * r9 + 1584.0 * sqrt(M_PI) * alpha7 * r7  
+            + 5544.0 * sqrt(M_PI) * alpha5 * r5 + 13860.0 * sqrt(M_PI) * alpha3 * r3 + 20790.0 * sqrt(M_PI) * alpha * r 
+            + 10395.0 * M_PI * exp(alpha2 * r2) * erfc(alpha * r)) * exp(-1.0 * alpha2 * r2) / (M_PI * r13);
+          }
         }
         else {
           

@@ -265,6 +265,18 @@ void EnzoMethodGravity::compute_accelerations (EnzoBlock * enzo_block) throw()
 
   compute_acceleration.compute(enzo_block);
 
+  /* enzo_float * accel_x = (enzo_float *) field.values("acceleration_x");
+  // loop over cells
+  for (int iz = gz; iz < mz-gz; iz++) {
+    for (int iy = gy; iy < my-gy; iy++) {
+      for (int ix = gx; ix < mx-gx; ix++) {
+        
+        double accel = accel_x[ix + mx * (iy + iz * my)];
+	CkPrintf("accel: %f\n", accel);
+      }
+    }
+    } */
+
   // Clear "B" and "density_total" fields for next call
   // Note density_total may not be defined
 

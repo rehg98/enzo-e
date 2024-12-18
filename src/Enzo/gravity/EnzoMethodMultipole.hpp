@@ -34,7 +34,8 @@ public: // interface -- which methods should be public and which protected?
       interp_xpoints_(64),
       interp_ypoints_(2),
       interp_zpoints_(2),
-      dt_max_(1.0e10)
+      dt_max_(1.0e10),
+      ir_exit_(-1)
   { }
 
   /// Charm++ PUP::able declarations
@@ -56,7 +57,8 @@ public: // interface -- which methods should be public and which protected?
       interp_xpoints_(64),
       interp_ypoints_(2),
       interp_zpoints_(2),
-      dt_max_(1.0e10)
+      dt_max_(1.0e10),
+      ir_exit_(-1)
   { for (int i = 0; i < cello::num_children(); i++) i_msg_restrict_[i] = -1; }
 
   /// CHARM++ Pack / Unpack function
@@ -197,6 +199,8 @@ protected: // methods
 
   void evaluate_force_ (Block * block) throw();  // compute force from taylor coeffs
 
+  void refresh_acceleration_ (EnzoBlock * enzo_block) throw();
+
   // compute the Newtonian acceleration induced on this cell/particle by Cell/Particle B.
   // disp points from this mass to mass_b (i.e., disp_x = x_b - x).
   // force is softened with gravitational softening length eps0 and cutoff distance r0
@@ -207,7 +211,8 @@ protected: // methods
     double disp_norm = sqrt(disp[0]*disp[0] + disp[1]*disp[1] + disp[2]*disp[2]);  
     double eps = epsilon_(disp_norm, eps0_, r0_);    // softening
     double soft_disp = disp_norm*disp_norm + eps;    // softened displacement (r^2 + eps)
-    if (soft_disp == 0) CkPrintf("soft_disp = 0\n");
+    // if (eps != 0) CkPrintf("eps != 0\n");
+    
     
     // computing m/(disp_norm^2 + eps) * disp_hat
     // grav constant (and scale factor) are included in .cpp
@@ -402,6 +407,31 @@ public:
     prod[7] = a[1] * b[4];  // 112
     prod[8] = a[1] * b[5];  // 122
     prod[9] = a[2] * b[5];  // 222
+
+    return prod;
+  }
+
+  // compute the outer product of a 3-vector 'a' with a rank-3 tensor 'b'
+  static std::array<double, 15> outer_13_(std::array<double, 3> a, std::array<double, 10> b) throw()
+  {
+    std::array<double, 15> prod;
+
+    prod[0] = a[0] * b[0];  // 0000
+    prod[1] = a[0] * b[1];  // 0001
+    prod[2] = a[0] * b[2];  // 0002
+    prod[3] = a[0] * b[3];  // 0011
+    prod[4] = a[0] * b[4];  // 0012
+    prod[5] = a[0] * b[5];  // 0022
+    prod[6] = a[0] * b[6];  // 0111
+    prod[7] = a[0] * b[7];  // 0112
+    prod[8] = a[0] * b[8];  // 0122
+    prod[9] = a[0] * b[9];  // 0222
+    prod[10] = a[1] * b[6];  // 1111
+    prod[11] = a[1] * b[7];  // 1112
+    prod[12] = a[1] * b[8];  // 1122
+    prod[13] = a[1] * b[9];  // 1222
+    prod[14] = a[2] * b[9];  // 2222
+
 
     return prod;
   }
@@ -621,6 +651,9 @@ protected: // attributes
   int i_sync_restrict_;
   int i_msg_prolong_;
   int i_msg_restrict_[8];
+
+  /// Refresh ids
+  int ir_exit_;
 
   /// indices to multipoles for this block
   int i_mass_;

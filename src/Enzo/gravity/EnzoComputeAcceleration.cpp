@@ -137,6 +137,8 @@ void EnzoComputeAcceleration::compute_(Block * block)
 	  int i=ix + mx*iy;
 	  ax[i] = fx*(p[i+dx] - p[i-dx]);
 	  ay[i] = fy*(p[i+dy] - p[i-dy]);
+
+	  CkPrintf("ax, ay: %f, %f\n", ax[i], ay[i]);
 	}
       }
 

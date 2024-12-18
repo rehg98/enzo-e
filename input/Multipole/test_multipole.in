@@ -1,5 +1,5 @@
 
-# Problem: Compute multipoles
+# Problem: Compute self-gravity using FMM
 # Author:  Ryan Golant (ryan.golant@columbia.edu)
 #
 # July 19, 2022
@@ -9,8 +9,9 @@
 #======================================================================
 
  Domain {
-     lower = [ -0.5, -0.5 ];
-     upper = [ 0.5, 0.5 ];
+     lower = [ 0.0, 0.0, 0.0 ];
+     # upper = [ 3.0, 1.5, 1.5 ];
+     upper = [1.0, 1.0, 1.0];
  }
 
 
@@ -18,8 +19,8 @@
     list = ["value"];
 
     value {
-        density = [ 0.1 ];
-        # density = [10.0, y >= 0.0, 0.1];
+        # density = [ 1.0 ];
+        density = [1.000001, x >= 0.5, 0.999999];
 	
 	acceleration_x = [ 0.0 ];
 	acceleration_y = [ 0.0 ];
@@ -53,9 +54,10 @@
 #======================================================================
 
  Mesh {
-     root_rank = 2;
-     root_size   = [ 8, 8];  # total number of cells in root grid
-     root_blocks = [  1,  1 ];  # number of blocks in root grid
+     root_rank = 3;
+    #  root_size   = [ 64, 32, 1];  # total number of cells in root grid
+      root_size = [32, 32, 32];
+     root_blocks = [  1,  1, 1 ];  # number of blocks in root grid
                                 # (so block size = (64/4,32/2) = (16,16)
  }
 
@@ -63,7 +65,7 @@
      list = [ "density" ];
      # list = [ "slope" ];
      
-     max_level = 1;
+     max_level = 0;
 
      density {
          field_list = [ "density" ];
@@ -77,15 +79,15 @@
  Field {
      alignment = 8;
      gamma = 1.4000;
-     ghost_depth = 2;
+     ghost_depth = 1;
      
      list = [ "density", "acceleration_x", "acceleration_y", "acceleration_z"];
      
      padding = 0;
  }
 
-
-Particle {
+ '''
+ Particle {
     list = ["star", "trace"];
 
     star {
@@ -113,6 +115,7 @@ Particle {
         position = [ "x", "y", "z" ];
     }
   }
+  '''
 
 #======================================================================
 # COMPUTATION
@@ -131,7 +134,7 @@ Particle {
 	 r0 = 0.0;
 	 interp_xpoints = 64;
 	 interp_ypoints = 64;
-	 interp_zpoints = 2;
+	 interp_zpoints = 64;
      }
  }
 
